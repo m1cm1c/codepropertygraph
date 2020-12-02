@@ -17,17 +17,17 @@ class AstVisitor(driver: AntlrCModuleParserDriver, astParentNode: nodes.NewNames
   var filenameOption: Option[String] = _
 
   override def visit(functionDef: FunctionDef): Unit = {
-    println("visting FunctionDef")
+    println("visiting FunctionDef")
     new AstCreator(driver.cpg, astParentNode, global).convert(functionDef)
   }
 
   override def visit(classDefStatement: ClassDefStatement): Unit = {
-    println("visting ClassDefStatement")
+    println("visiting ClassDefStatement")
     new AstCreator(driver.cpg, astParentNode, global).convert(classDefStatement)
   }
 
   override def visit(identifierDeclStmt: IdentifierDeclStatement): Unit = {
-    println("visting IdentifierDeclStatement")
+    println("visiting IdentifierDeclStatement")
     new AstCreator(driver.cpg, astParentNode, global).convert(identifierDeclStmt)
   }
 
