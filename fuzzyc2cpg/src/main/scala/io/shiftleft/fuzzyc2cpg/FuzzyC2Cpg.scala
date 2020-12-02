@@ -10,7 +10,7 @@ import io.shiftleft.fuzzyc2cpg.passes.{AstCreationPass, CMetaDataPass, StubRemov
 import io.shiftleft.passes.IntervalKeyPool
 import io.shiftleft.semanticcpg.passes.CfgCreationPass
 import io.shiftleft.x2cpg.SourceFiles
-import overflowdb.{Config, Graph}
+import overflowdb.{Config, Graph, Node}
 
 import scala.collection.mutable.ListBuffer
 import scala.util.control.NonFatal
@@ -70,6 +70,9 @@ class FuzzyC2Cpg() {
   def runAndOutput(sourcePaths: Set[String],
                    sourceFileExtensions: Set[String],
                    optionalOutputPath: Option[String] = None): Cpg = {
+    println("source paths: " + sourcePaths)
+    println("source file extensions: " + sourceFileExtensions)
+    println("optional output path: " + optionalOutputPath)
     val metaDataKeyPool = new IntervalKeyPool(1, 100)
     val typesKeyPool = new IntervalKeyPool(100, 1000100)
     val functionKeyPools = KeyPools.obtain(2, 1000101)
@@ -78,9 +81,76 @@ class FuzzyC2Cpg() {
     val sourceFileNames = SourceFiles.determine(sourcePaths, sourceFileExtensions)
 
     new CMetaDataPass(cpg, Some(metaDataKeyPool)).createAndApply()
+    println("CPG:")
+    var itr = cpg.graph.nodes()
+    while(itr.hasNext)
+      println(itr.next())
     val astCreator = new AstCreationPass(sourceFileNames, cpg, functionKeyPools.head)
-    astCreator.createAndApply()
-    new CfgCreationPass(cpg, functionKeyPools.last).createAndApply()
+    astCreator.createAndApply() // MARK
+    println("CPG:")
+    itr = cpg.graph.nodes()
+    while(itr.hasNext)
+      println(itr.next())
+    // MARK: Einstiegspunkt
+    // The first 4 nodes are: MetaData, NamespaceBlock, File, NamespaceBlock
+    // All other nodes need to be deleted.
+    itr = cpg.graph.nodes()
+    val nodesToDelete = new Array[Node](cpg.graph.nodeCount()-4)
+    for(i <- 0 until cpg.graph.nodeCount()) {
+      if(i >= 4) {
+        nodesToDelete(i-4) = itr.next()
+      } else {
+        itr.next()
+      }
+    }
+    for(node <- nodesToDelete) {
+      //println(node.)
+      cpg.graph.remove(node)
+    }
+
+    println("CPG:")
+    itr = cpg.graph.nodes()
+    while(itr.hasNext)
+      println(itr.next())
+
+    // Recreating the initial CPG manually.
+    val graph = cpg.graph
+    graph.addNode(1000102, "METHOD")
+    graph.addNode(1000103, "METHOD_PARAMETER_IN")
+    graph.addNode(1000104, "METHOD_PARAMETER_IN")
+    graph.addNode(1000105, "BLOCK")
+    graph.addNode(1000106, "CONTROL_STRUCTURE")
+    graph.addNode(1000107, "CALL")
+    graph.addNode(1000108, "CALL")
+    graph.addNode(1000109, "IDENTIFIER")
+    graph.addNode(1000110, "LITERAL")
+    graph.addNode(1000111, "CALL")
+    graph.addNode(1000112, "CALL")
+    graph.addNode(1000113, "CALL")
+    graph.addNode(1000114, "IDENTIFIER")
+    graph.addNode(1000115, "LITERAL")
+    graph.addNode(1000116, "LITERAL")
+    graph.addNode(1000117, "LITERAL")
+    graph.addNode(1000118, "BLOCK")
+    graph.addNode(1000119, "CALL")
+    graph.addNode(1000120, "IDENTIFIER")
+    graph.addNode(1000121, "LITERAL")
+    graph.addNode(1000122, "CALL")
+    graph.addNode(1000123, "LITERAL")
+    graph.addNode(1000124, "CALL")
+    graph.addNode(1000125, "LITERAL")
+    graph.addNode(1000126, "CALL")
+    graph.addNode(1000127, "LITERAL")
+    graph.addNode(1000128, "METHOD_RETURN")
+
+
+
+    println("CPG:")
+    itr = cpg.graph.nodes()
+    while(itr.hasNext)
+      println(itr.next())
+
+    new CfgCreationPass(cpg, functionKeyPools.last).createAndApply() // MARK
     new StubRemovalPass(cpg).createAndApply()
     new TypeNodePass(astCreator.global.usedTypes.keys().asScala.toList, cpg, Some(typesKeyPool)).createAndApply()
     cpg
@@ -134,8 +204,10 @@ object FuzzyC2Cpg {
               Some(config.outputPath)
             )
           } else {
+            println("!!!!!!!!!!!iamhereinelse")
             val cpg = fuzzyc.runAndOutput(config.inputPaths, config.sourceFileExtensions, Some(config.outputPath))
             cpg.close()
+            println("cpg closed")
           }
 
         } catch {
@@ -146,6 +218,7 @@ object FuzzyC2Cpg {
       case _ =>
         System.exit(1)
     }
+    println("exiting main")
   }
 
   final case class Config(inputPaths: Set[String] = Set.empty,

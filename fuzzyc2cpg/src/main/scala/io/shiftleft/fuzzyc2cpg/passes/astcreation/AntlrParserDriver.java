@@ -33,6 +33,11 @@ import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
+import org.antlr.v4.runtime.tree.TerminalNodeImpl;
+import org.antlr.v4.runtime.tree.TerminalNode;
+import org.antlr.v4.runtime.tree.pattern.TokenTagToken;
+import org.antlr.v4.runtime.tree.RuleNode;
+import org.antlr.v4.runtime.tree.ErrorNode;
 import scala.Some;
 import scala.collection.immutable.List$;
 
@@ -72,6 +77,10 @@ abstract public class AntlrParserDriver {
         cpg  = diffGraph;
         handleHiddenTokens(filename);
         TokenSubStream stream = createTokenStreamFromFile(filename);
+		for(int i = 1; i <= stream.getNumberOfOnChannelTokens(); i++) {
+			System.out.println(stream.LT(i).getText());
+		}
+		
         initializeContextWithFile(filename, stream);
 
         ParseTree tree = parseTokenStream(stream);
@@ -151,7 +160,7 @@ abstract public class AntlrParserDriver {
 
         CharStream input = createInputStreamForFile(filename);
         Lexer lexer = createLexer(input);
-        TokenSubStream tokens = new TokenSubStream(lexer);
+        TokenSubStream tokens = new TokenSubStream(lexer); // MARK
         return tokens;
 
     }
@@ -159,6 +168,7 @@ abstract public class AntlrParserDriver {
     private CharStream createInputStreamForFile(String filename) {
 
         try {
+			System.out.println("reading file in createInputStreamForFile: " + filename);
             return CharStreams.fromFileName(filename);
         } catch (IOException exception) {
             throw new RuntimeException(String.format("Unable to find source file [%s]", filename));
@@ -173,8 +183,79 @@ abstract public class AntlrParserDriver {
     }
 
     protected void walkTree(ParseTree tree) {
+		System.out.println("Class of tree: " + tree.getClass().getName());
+		System.out.println("Class of listener: " + getListener().getClass().getName());
         ParseTreeWalker walker = new ParseTreeWalker();
-        walker.walk(getListener(), tree);
+		// MARK: Einstiegspunkt
+		/*
+		ParserRuleContext ctx0 = new ParserRuleContext();
+		ParserRuleContext ctx1 = new ParserRuleContext(ctx0, 1);
+		TokenTagToken ttt = new TokenTagToken("Call", 27, "Call");
+		TerminalNode tn = new TerminalNodeImpl(ttt);
+		ctx1.addChild(tn);
+		ctx0.addChild(ctx1);
+		listener.enterEveryRule(ctx0);
+		listener.exitEveryRule(ctx0);
+		*/
+		//System.out.println("!!!!!!!!!!!!!! calling walk !!!!!!!!!!!!!!");
+        walk(getListener(), tree);
+		//System.out.println("!!!!!!!!!!!!!! called walk !!!!!!!!!!!!!!");
+    }
+
+	/**
+	 * Performs a walk on the given parse tree starting at the root and going down recursively
+	 * with depth-first search. On each node, {@link ParseTreeWalker#enterRule} is called before
+	 * recursively walking down into child nodes, then
+	 * {@link ParseTreeWalker#exitRule} is called after the recursive call to wind up.
+	 * @param listener The listener used by the walker to process grammar rules
+	 * @param t The parse tree to be walked on
+	 */
+	// Adapted from: https://github.com/antlr/antlr4/blob/master/runtime/Java/src/org/antlr/v4/runtime/tree/ParseTreeWalker.java
+	public void walk(ParseTreeListener listener, ParseTree tree) {
+		if (tree instanceof ErrorNode) {
+			listener.visitErrorNode((ErrorNode) tree);
+			return;
+		}
+		else if (tree instanceof TerminalNode) {
+			listener.visitTerminal((TerminalNode) tree);
+			return;
+		}
+		RuleNode ruleNode = (RuleNode) tree;
+        enterRule(listener, ruleNode);
+        int n = ruleNode.getChildCount();
+        for (int i = 0; i<n; i++) {
+            walk(listener, ruleNode.getChild(i));
+        }
+		exitRule(listener, ruleNode);
+    }
+
+	/**
+	 * Enters a grammar rule by first triggering the generic event {@link ParseTreeListener#enterEveryRule}
+	 * then by triggering the event specific to the given parse tree node
+	 * @param listener The listener responding to the trigger events
+	 * @param r The grammar rule containing the rule context
+	 */
+	// Adapted from: https://github.com/antlr/antlr4/blob/master/runtime/Java/src/org/antlr/v4/runtime/tree/ParseTreeWalker.java
+    protected void enterRule(ParseTreeListener listener, RuleNode ruleNode) {
+		ParserRuleContext ctx = (ParserRuleContext) ruleNode.getRuleContext();
+		//System.out.println("ParserRuleContext:");
+		//System.out.println(ctx);
+		listener.enterEveryRule(ctx);
+		ctx.enterRule(listener);
+    }
+
+
+	/**
+	 * Exits a grammar rule by first triggering the event specific to the given parse tree node
+	 * then by triggering the generic event {@link ParseTreeListener#exitEveryRule}
+	 * @param listener The listener responding to the trigger events
+	 * @param r The grammar rule containing the rule context
+	 */
+	// Adapted from: https://github.com/antlr/antlr4/blob/master/runtime/Java/src/org/antlr/v4/runtime/tree/ParseTreeWalker.java
+	protected void exitRule(ParseTreeListener listener, RuleNode ruleNode) {
+		ParserRuleContext ctx = (ParserRuleContext) ruleNode.getRuleContext();
+		ctx.exitRule(listener);
+		listener.exitEveryRule(ctx);
     }
 
     protected void initializeContextWithFile(String filename,

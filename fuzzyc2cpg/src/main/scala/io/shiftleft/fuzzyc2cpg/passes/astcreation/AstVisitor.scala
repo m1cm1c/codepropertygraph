@@ -17,14 +17,17 @@ class AstVisitor(driver: AntlrCModuleParserDriver, astParentNode: nodes.NewNames
   var filenameOption: Option[String] = _
 
   override def visit(functionDef: FunctionDef): Unit = {
+    println("visting FunctionDef")
     new AstCreator(driver.cpg, astParentNode, global).convert(functionDef)
   }
 
   override def visit(classDefStatement: ClassDefStatement): Unit = {
+    println("visting ClassDefStatement")
     new AstCreator(driver.cpg, astParentNode, global).convert(classDefStatement)
   }
 
   override def visit(identifierDeclStmt: IdentifierDeclStatement): Unit = {
+    println("visting IdentifierDeclStatement")
     new AstCreator(driver.cpg, astParentNode, global).convert(identifierDeclStmt)
   }
 
@@ -64,6 +67,8 @@ class AntlrCModuleParserDriver() extends AntlrParserDriver() {
           tree = parser.code
         }
     }
+    println("Tree:")
+    println(tree.getText())
     tree
   }
 

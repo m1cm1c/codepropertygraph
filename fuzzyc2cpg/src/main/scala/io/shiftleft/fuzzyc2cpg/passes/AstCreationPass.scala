@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory
   * each file, including File and NamespaceBlock nodes. Files are processed in parallel.
   * */
 class AstCreationPass(filenames: List[String], cpg: Cpg, keyPool: IntervalKeyPool)
-    extends ParallelCpgPass[String](cpg, keyPools = Some(keyPool.split(filenames.size))) {
+    extends ParallelCpgPass[String](cpg, keyPools = Some(keyPool.split(filenames.size))) { // MARK
 
   private val logger = LoggerFactory.getLogger(getClass)
   val global: Global = Global()
@@ -20,7 +20,7 @@ class AstCreationPass(filenames: List[String], cpg: Cpg, keyPool: IntervalKeyPoo
   override def partIterator: Iterator[String] = filenames.iterator
 
   override def runOnPart(filename: String): Iterator[DiffGraph] = {
-
+println("running runOnPart: " + filename)
     val diffGraph = DiffGraph.newBuilder
     val absolutePath = new java.io.File(filename).toPath.toAbsolutePath.normalize().toString
     val fileNode = nodes.NewFile(name = absolutePath)
@@ -34,7 +34,7 @@ class AstCreationPass(filenames: List[String], cpg: Cpg, keyPool: IntervalKeyPoo
     diffGraph.addEdge(fileNode, namespaceBlock, EdgeTypes.AST)
 
     val driver = createDriver(fileNode, namespaceBlock)
-    tryToParse(driver, filename, diffGraph)
+    tryToParse(driver, filename, diffGraph) // MARK
   }
 
   private def createDriver(fileNode: nodes.NewFile,
