@@ -67,6 +67,35 @@ class FuzzyC2Cpg() {
     }
   }
 
+  def printNodes(graph: Graph): Unit = {
+    println("Nodes:")
+    val itr = graph.nodes()
+    while(itr.hasNext) {
+      val node = itr.next()
+      println("summary: " + node)
+      println("id: " + node.id())
+      println("label: " + node.label())
+      println("propertyKeys: " + node.propertyKeys())
+      println("propertyMap: " + node.propertyMap())
+      println("")
+    }
+  }
+
+  def printEdges(graph: Graph): Unit = {
+    println("Edges:")
+    var itrEdges = graph.edges()
+    while(itrEdges.hasNext) {
+      var edge = itrEdges.next()
+      println(edge)
+
+      var innerItr = edge.bothNodes()
+      while(innerItr.hasNext)
+        println(innerItr.next())
+
+      println("")
+    }
+  }
+
   def runAndOutput(sourcePaths: Set[String],
                    sourceFileExtensions: Set[String],
                    optionalOutputPath: Option[String] = None): Cpg = {
@@ -81,35 +110,20 @@ class FuzzyC2Cpg() {
     val sourceFileNames = SourceFiles.determine(sourcePaths, sourceFileExtensions)
 
     new CMetaDataPass(cpg, Some(metaDataKeyPool)).createAndApply()
-    println("CPG:")
-    var itr = cpg.graph.nodes()
-    while(itr.hasNext)
-      println(itr.next())
+    val graph = cpg.graph
+    //printNodes(graph)
+    //printEdges(graph)
 
     val astCreator = new AstCreationPass(sourceFileNames, cpg, functionKeyPools.head)
     astCreator.createAndApply() // MARK
 
-    println("CPG:")
-    itr = cpg.graph.nodes()
-    while(itr.hasNext)
-      println(itr.next())
+    //printNodes(graph)
+    //printEdges(graph)
 
-    println("Edges:")
-    var itrEdges = cpg.graph.edges()
-    while(itrEdges.hasNext) {
-      var edge = itrEdges.next()
-      println(edge)
-
-      var innerItr = edge.bothNodes()
-      while(innerItr.hasNext)
-        println(innerItr.next())
-
-      println("")
-    }
     // MARK: Einstiegspunkt
     // The first 4 nodes are: MetaData, NamespaceBlock, File, NamespaceBlock
     // All other nodes need to be deleted.
-    itr = cpg.graph.nodes()
+    var itr = cpg.graph.nodes()
     val nodesToDelete = new Array[Node](cpg.graph.nodeCount()-4)
     for(i <- 0 until cpg.graph.nodeCount()) {
       if(i >= 4) {
@@ -125,25 +139,7 @@ class FuzzyC2Cpg() {
     // TODO: Wieso wird die AST-Edge von "io.shiftleft.codepropertygraph.generated.nodes.NamespaceBlock[label=NAMESPACE_BLOCK; id=1000101]" zu
     // TODO: "io.shiftleft.codepropertygraph.generated.nodes.Method[label=METHOD; id=1000102]" nicht entfernt, obwohl der Ziel-Knoten entfernt wird?
 
-    println("CPG:")
-    itr = cpg.graph.nodes()
-    while(itr.hasNext)
-      println(itr.next())
-
-    println("Edges:")
-    itrEdges = cpg.graph.edges()
-    while(itrEdges.hasNext) {
-      var edge = itrEdges.next()
-      println(edge)
-
-      var innerItr = edge.bothNodes()
-      while(innerItr.hasNext)
-        println(innerItr.next())
-
-      println("")
-    }
     // Recreating the initial CPG manually.
-    val graph = cpg.graph
     graph.addNode(1000102, "METHOD")
     graph.addNode(1000103, "METHOD_PARAMETER_IN")
     graph.addNode(1000104, "METHOD_PARAMETER_IN")
@@ -171,6 +167,268 @@ class FuzzyC2Cpg() {
     graph.addNode(1000126, "CALL")
     graph.addNode(1000127, "LITERAL")
     graph.addNode(1000128, "METHOD_RETURN")
+
+    graph.node(1000102).setProperty("COLUMN_NUMBER", 0)
+    graph.node(1000102).setProperty("LINE_NUMBER", 5)
+    graph.node(1000102).setProperty("COLUMN_NUMBER_END", 0)
+    graph.node(1000102).setProperty("IS_EXTERNAL", false)
+    graph.node(1000102).setProperty("SIGNATURE", "int main (int,char * [ ])")
+    graph.node(1000102).setProperty("NAME", "main")
+    graph.node(1000102).setProperty("AST_PARENT_TYPE", "")
+    graph.node(1000102).setProperty("AST_PARENT_FULL_NAME", "")
+    graph.node(1000102).setProperty("ORDER", -1)
+    graph.node(1000102).setProperty("CODE", "main (int argc,char *argv[])")
+    graph.node(1000102).setProperty("FULL_NAME", "main")
+    graph.node(1000102).setProperty("LINE_NUMBER_END", 12)
+    graph.node(1000102).setProperty("FILENAME", "")
+
+    graph.node(1000103).setProperty("ORDER", 1)
+    graph.node(1000103).setProperty("CODE", "int argc")
+    graph.node(1000103).setProperty("COLUMN_NUMBER", 9)
+    graph.node(1000103).setProperty("LINE_NUMBER", 5)
+    graph.node(1000103).setProperty("TYPE_FULL_NAME", "int")
+    graph.node(1000103).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
+    graph.node(1000103).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000103).setProperty("NAME", "argc")
+
+    graph.node(1000104).setProperty("ORDER", 2)
+    graph.node(1000104).setProperty("CODE", "char *argv[]")
+    graph.node(1000104).setProperty("COLUMN_NUMBER", 19)
+    graph.node(1000104).setProperty("LINE_NUMBER", 5)
+    graph.node(1000104).setProperty("TYPE_FULL_NAME", "char * [ ]")
+    graph.node(1000104).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
+    graph.node(1000104).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000104).setProperty("NAME", "argv")
+
+    graph.node(1000105).setProperty("ORDER", 3)
+    graph.node(1000105).setProperty("ARGUMENT_INDEX", 3)
+    graph.node(1000105).setProperty("CODE", "")
+    graph.node(1000105).setProperty("COLUMN_NUMBER", 33)
+    graph.node(1000105).setProperty("TYPE_FULL_NAME", "void")
+    graph.node(1000105).setProperty("LINE_NUMBER", 5)
+    graph.node(1000105).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+    graph.node(1000106).setProperty("PARSER_TYPE_NAME", "IfStatement")
+    graph.node(1000106).setProperty("ORDER", 1)
+    graph.node(1000106).setProperty("LINE_NUMBER", 6)
+    graph.node(1000106).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(1000106).setProperty("CODE", "if (argc > 1 && strcmp(argv[1], \"42\") == 0)")
+    graph.node(1000106).setProperty("COLUMN_NUMBER", 2)
+
+    graph.node(1000107).setProperty("ORDER", 1)
+    graph.node(1000107).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(1000107).setProperty("CODE", "argc > 1 && strcmp(argv[1], \"42\") == 0")
+    graph.node(1000107).setProperty("COLUMN_NUMBER", 6)
+    graph.node(1000107).setProperty("METHOD_FULL_NAME", "<operator>.logicalAnd")
+    graph.node(1000107).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(1000107).setProperty("LINE_NUMBER", 6)
+    graph.node(1000107).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+    graph.node(1000107).setProperty("SIGNATURE", "TODO assignment signature")
+    graph.node(1000107).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000107).setProperty("NAME", "<operator>.logicalAnd")
+
+    graph.node(1000108).setProperty("ORDER", 1)
+    graph.node(1000108).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(1000108).setProperty("CODE", "argc > 1")
+    graph.node(1000108).setProperty("COLUMN_NUMBER", 6)
+    graph.node(1000108).setProperty("METHOD_FULL_NAME", "<operator>.greaterThan")
+    graph.node(1000108).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(1000108).setProperty("LINE_NUMBER", 6)
+    graph.node(1000108).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+    graph.node(1000108).setProperty("SIGNATURE", "TODO assignment signature")
+    graph.node(1000108).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000108).setProperty("NAME", "<operator>.greaterThan")
+
+    graph.node(1000109).setProperty("ORDER", 1)
+    graph.node(1000109).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(1000109).setProperty("CODE", "argc")
+    graph.node(1000109).setProperty("COLUMN_NUMBER", 6)
+    graph.node(1000109).setProperty("TYPE_FULL_NAME", "int")
+    graph.node(1000109).setProperty("LINE_NUMBER", 6)
+    graph.node(1000109).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000109).setProperty("NAME", "argc")
+
+    graph.node(1000110).setProperty("ORDER", 2)
+    graph.node(1000110).setProperty("ARGUMENT_INDEX", 2)
+    graph.node(1000110).setProperty("CODE", "1")
+    graph.node(1000110).setProperty("COLUMN_NUMBER", 13)
+    graph.node(1000110).setProperty("TYPE_FULL_NAME", "int")
+    graph.node(1000110).setProperty("LINE_NUMBER", 6)
+    graph.node(1000110).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+    graph.node(1000111).setProperty("ORDER", 2)
+    graph.node(1000111).setProperty("ARGUMENT_INDEX", 2)
+    graph.node(1000111).setProperty("CODE", "strcmp(argv[1], \"42\") == 0")
+    graph.node(1000111).setProperty("COLUMN_NUMBER", 18)
+    graph.node(1000111).setProperty("METHOD_FULL_NAME", "<operator>.equals")
+    graph.node(1000111).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(1000111).setProperty("LINE_NUMBER", 6)
+    graph.node(1000111).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+    graph.node(1000111).setProperty("SIGNATURE", "TODO assignment signature")
+    graph.node(1000111).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000111).setProperty("NAME", "<operator>.equals")
+
+    graph.node(1000112).setProperty("ORDER", 1)
+    graph.node(1000112).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(1000112).setProperty("CODE", "strcmp(argv[1], \"42\")")
+    graph.node(1000112).setProperty("COLUMN_NUMBER", 18)
+    graph.node(1000112).setProperty("METHOD_FULL_NAME", "strcmp")
+    graph.node(1000112).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(1000112).setProperty("LINE_NUMBER", 6)
+    graph.node(1000112).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+    graph.node(1000112).setProperty("SIGNATURE", "TODO assignment signature")
+    graph.node(1000112).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000112).setProperty("NAME", "strcmp")
+
+    graph.node(1000113).setProperty("ORDER", 1)
+    graph.node(1000113).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(1000113).setProperty("CODE", "argv[1]")
+    graph.node(1000113).setProperty("COLUMN_NUMBER", 25)
+    graph.node(1000113).setProperty("METHOD_FULL_NAME", "<operator>.indirectIndexAccess")
+    graph.node(1000113).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(1000113).setProperty("LINE_NUMBER", 6)
+    graph.node(1000113).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+    graph.node(1000113).setProperty("SIGNATURE", "TODO assignment signature")
+    graph.node(1000113).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000113).setProperty("NAME", "<operator>.indirectIndexAccess")
+
+    graph.node(1000114).setProperty("ORDER", 1)
+    graph.node(1000114).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(1000114).setProperty("CODE", "argv")
+    graph.node(1000114).setProperty("COLUMN_NUMBER", 25)
+    graph.node(1000114).setProperty("TYPE_FULL_NAME", "char * [ ]")
+    graph.node(1000114).setProperty("LINE_NUMBER", 6)
+    graph.node(1000114).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000114).setProperty("NAME", "argv")
+
+    graph.node(1000115).setProperty("ORDER", 2)
+    graph.node(1000115).setProperty("ARGUMENT_INDEX", 2)
+    graph.node(1000115).setProperty("CODE", "1")
+    graph.node(1000115).setProperty("COLUMN_NUMBER", 30)
+    graph.node(1000115).setProperty("TYPE_FULL_NAME", "int")
+    graph.node(1000115).setProperty("LINE_NUMBER", 6)
+    graph.node(1000115).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+    graph.node(1000116).setProperty("ORDER", 2)
+    graph.node(1000116).setProperty("ARGUMENT_INDEX", 2)
+    graph.node(1000116).setProperty("CODE", "\"42\"")
+    graph.node(1000116).setProperty("COLUMN_NUMBER", 34)
+    graph.node(1000116).setProperty("TYPE_FULL_NAME", "char *")
+    graph.node(1000116).setProperty("LINE_NUMBER", 6)
+    graph.node(1000116).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+    graph.node(1000117).setProperty("ORDER", 2)
+    graph.node(1000117).setProperty("ARGUMENT_INDEX", 2)
+    graph.node(1000117).setProperty("CODE", "0")
+    graph.node(1000117).setProperty("COLUMN_NUMBER", 43)
+    graph.node(1000117).setProperty("TYPE_FULL_NAME", "int")
+    graph.node(1000117).setProperty("LINE_NUMBER", 6)
+    graph.node(1000117).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+    graph.node(1000118).setProperty("ORDER", 2)
+    graph.node(1000118).setProperty("ARGUMENT_INDEX", 2)
+    graph.node(1000118).setProperty("CODE", "")
+    graph.node(1000118).setProperty("COLUMN_NUMBER", 46)
+    graph.node(1000118).setProperty("TYPE_FULL_NAME", "void")
+    graph.node(1000118).setProperty("LINE_NUMBER", 6)
+    graph.node(1000118).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+    graph.node(1000119).setProperty("ORDER", 1)
+    graph.node(1000119).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(1000119).setProperty("CODE", "fprintf(stderr, \"It depends!\\n\")")
+    graph.node(1000119).setProperty("COLUMN_NUMBER", 4)
+    graph.node(1000119).setProperty("METHOD_FULL_NAME", "fprintf")
+    graph.node(1000119).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(1000119).setProperty("LINE_NUMBER", 7)
+    graph.node(1000119).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+    graph.node(1000119).setProperty("SIGNATURE", "TODO assignment signature")
+    graph.node(1000119).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000119).setProperty("NAME", "fprintf")
+
+    graph.node(1000120).setProperty("ORDER", 1)
+    graph.node(1000120).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(1000120).setProperty("CODE", "stderr")
+    graph.node(1000120).setProperty("COLUMN_NUMBER", 12)
+    graph.node(1000120).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(1000120).setProperty("LINE_NUMBER", 7)
+    graph.node(1000120).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000120).setProperty("NAME", "stderr")
+
+    graph.node(1000121).setProperty("ORDER", 2)
+    graph.node(1000121).setProperty("ARGUMENT_INDEX", 2)
+    graph.node(1000121).setProperty("CODE", "\"It depends!\\n\"")
+    graph.node(1000121).setProperty("COLUMN_NUMBER", 20)
+    graph.node(1000121).setProperty("TYPE_FULL_NAME", "char *")
+    graph.node(1000121).setProperty("LINE_NUMBER", 7)
+    graph.node(1000121).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+    graph.node(1000122).setProperty("ORDER", 2)
+    graph.node(1000122).setProperty("ARGUMENT_INDEX", 2)
+    graph.node(1000122).setProperty("CODE", "exit(42)")
+    graph.node(1000122).setProperty("COLUMN_NUMBER", 4)
+    graph.node(1000122).setProperty("METHOD_FULL_NAME", "exit")
+    graph.node(1000122).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(1000122).setProperty("LINE_NUMBER", 8)
+    graph.node(1000122).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+    graph.node(1000122).setProperty("SIGNATURE", "TODO assignment signature")
+    graph.node(1000122).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000122).setProperty("NAME", "exit")
+
+    graph.node(1000123).setProperty("ORDER", 1)
+    graph.node(1000123).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(1000123).setProperty("CODE", "42")
+    graph.node(1000123).setProperty("COLUMN_NUMBER", 9)
+    graph.node(1000123).setProperty("TYPE_FULL_NAME", "int")
+    graph.node(1000123).setProperty("LINE_NUMBER", 8)
+    graph.node(1000123).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+    graph.node(1000124).setProperty("ORDER", 2)
+    graph.node(1000124).setProperty("ARGUMENT_INDEX", 2)
+    graph.node(1000124).setProperty("CODE", "printf(\"What is the meaning of life?\\n\")")
+    graph.node(1000124).setProperty("COLUMN_NUMBER", 2)
+    graph.node(1000124).setProperty("METHOD_FULL_NAME", "printf")
+    graph.node(1000124).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(1000124).setProperty("LINE_NUMBER", 10)
+    graph.node(1000124).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+    graph.node(1000124).setProperty("SIGNATURE", "TODO assignment signature")
+    graph.node(1000124).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000124).setProperty("NAME", "printf")
+
+    graph.node(1000125).setProperty("ORDER", 1)
+    graph.node(1000125).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(1000125).setProperty("CODE", "\"What is the meaning of life?\\n\"")
+    graph.node(1000125).setProperty("COLUMN_NUMBER", 9)
+    graph.node(1000125).setProperty("TYPE_FULL_NAME", "char *")
+    graph.node(1000125).setProperty("LINE_NUMBER", 10)
+    graph.node(1000125).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+    graph.node(1000126).setProperty("ORDER", 3)
+    graph.node(1000126).setProperty("ARGUMENT_INDEX", 3)
+    graph.node(1000126).setProperty("CODE", "exit(0)")
+    graph.node(1000126).setProperty("COLUMN_NUMBER", 2)
+    graph.node(1000126).setProperty("METHOD_FULL_NAME", "exit")
+    graph.node(1000126).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(1000126).setProperty("LINE_NUMBER", 11)
+    graph.node(1000126).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+    graph.node(1000126).setProperty("SIGNATURE", "TODO assignment signature")
+    graph.node(1000126).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(1000126).setProperty("NAME", "exit")
+
+    graph.node(1000127).setProperty("ORDER", 1)
+    graph.node(1000127).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(1000127).setProperty("CODE", "0")
+    graph.node(1000127).setProperty("COLUMN_NUMBER", 7)
+    graph.node(1000127).setProperty("TYPE_FULL_NAME", "int")
+    graph.node(1000127).setProperty("LINE_NUMBER", 11)
+    graph.node(1000127).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+    graph.node(1000128).setProperty("ORDER", 4)
+    graph.node(1000128).setProperty("CODE", "RET")
+    graph.node(1000128).setProperty("COLUMN_NUMBER", 0)
+    graph.node(1000128).setProperty("LINE_NUMBER", 5)
+    graph.node(1000128).setProperty("TYPE_FULL_NAME", "int")
+    graph.node(1000128).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
+    graph.node(1000128).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
 
     graph.node(1000101).addEdge("AST", graph.node(1000102)) // buggy edge (does not get removed when one of its nodes gets removed)
     graph.node(1000102).addEdge("AST", graph.node(1000103))
@@ -218,24 +476,8 @@ class FuzzyC2Cpg() {
     graph.node(1000126).addEdge("ARGUMENT", graph.node(1000127))
     graph.node(1000126).addEdge("AST", graph.node(1000127))
 
-
-    println("CPG:")
-    itr = cpg.graph.nodes()
-    while(itr.hasNext)
-      println(itr.next())
-
-    println("Edges:")
-    itrEdges = cpg.graph.edges()
-    while(itrEdges.hasNext) {
-      var edge = itrEdges.next()
-      println(edge)
-
-      var innerItr = edge.bothNodes()
-      while(innerItr.hasNext)
-        println(innerItr.next())
-
-      println("")
-    }
+    printNodes(graph)
+    //printEdges(graph)
 
     new CfgCreationPass(cpg, functionKeyPools.last).createAndApply() // MARK
     new StubRemovalPass(cpg).createAndApply()
