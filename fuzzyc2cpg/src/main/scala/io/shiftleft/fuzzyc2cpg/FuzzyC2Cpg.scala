@@ -85,12 +85,27 @@ class FuzzyC2Cpg() {
     var itr = cpg.graph.nodes()
     while(itr.hasNext)
       println(itr.next())
+
     val astCreator = new AstCreationPass(sourceFileNames, cpg, functionKeyPools.head)
     astCreator.createAndApply() // MARK
+
     println("CPG:")
     itr = cpg.graph.nodes()
     while(itr.hasNext)
       println(itr.next())
+
+    println("Edges:")
+    var itrEdges = cpg.graph.edges()
+    while(itrEdges.hasNext) {
+      var edge = itrEdges.next()
+      println(edge)
+
+      var innerItr = edge.bothNodes()
+      while(innerItr.hasNext)
+        println(innerItr.next())
+
+      println("")
+    }
     // MARK: Einstiegspunkt
     // The first 4 nodes are: MetaData, NamespaceBlock, File, NamespaceBlock
     // All other nodes need to be deleted.
@@ -107,12 +122,26 @@ class FuzzyC2Cpg() {
       //println(node.)
       cpg.graph.remove(node)
     }
+    // TODO: Wieso wird die AST-Edge von "io.shiftleft.codepropertygraph.generated.nodes.NamespaceBlock[label=NAMESPACE_BLOCK; id=1000101]" zu
+    // TODO: "io.shiftleft.codepropertygraph.generated.nodes.Method[label=METHOD; id=1000102]" nicht entfernt, obwohl der Ziel-Knoten entfernt wird?
 
     println("CPG:")
     itr = cpg.graph.nodes()
     while(itr.hasNext)
       println(itr.next())
 
+    println("Edges:")
+    itrEdges = cpg.graph.edges()
+    while(itrEdges.hasNext) {
+      var edge = itrEdges.next()
+      println(edge)
+
+      var innerItr = edge.bothNodes()
+      while(innerItr.hasNext)
+        println(innerItr.next())
+
+      println("")
+    }
     // Recreating the initial CPG manually.
     val graph = cpg.graph
     graph.addNode(1000102, "METHOD")
@@ -143,12 +172,70 @@ class FuzzyC2Cpg() {
     graph.addNode(1000127, "LITERAL")
     graph.addNode(1000128, "METHOD_RETURN")
 
+    graph.node(1000101).addEdge("AST", graph.node(1000102)) // buggy edge (does not get removed when one of its nodes gets removed)
+    graph.node(1000102).addEdge("AST", graph.node(1000103))
+    graph.node(1000102).addEdge("AST", graph.node(1000104))
+    graph.node(1000102).addEdge("AST", graph.node(1000105))
+    graph.node(1000102).addEdge("AST", graph.node(1000128))
+    graph.node(1000105).addEdge("AST", graph.node(1000106))
+    graph.node(1000105).addEdge("AST", graph.node(1000124))
+    graph.node(1000105).addEdge("AST", graph.node(1000126))
+    graph.node(1000106).addEdge("CONDITION", graph.node(1000107))
+    graph.node(1000106).addEdge("AST", graph.node(1000107))
+    graph.node(1000106).addEdge("AST", graph.node(1000118))
+    graph.node(1000107).addEdge("ARGUMENT", graph.node(1000108))
+    graph.node(1000107).addEdge("ARGUMENT", graph.node(1000111))
+    graph.node(1000107).addEdge("AST", graph.node(1000108))
+    graph.node(1000107).addEdge("AST", graph.node(1000111))
+    graph.node(1000108).addEdge("ARGUMENT", graph.node(1000109))
+    graph.node(1000108).addEdge("ARGUMENT", graph.node(1000110))
+    graph.node(1000108).addEdge("AST", graph.node(1000109))
+    graph.node(1000108).addEdge("AST", graph.node(1000110))
+    graph.node(1000109).addEdge("REF", graph.node(1000103))
+    graph.node(1000111).addEdge("ARGUMENT", graph.node(1000112))
+    graph.node(1000111).addEdge("ARGUMENT", graph.node(1000117))
+    graph.node(1000111).addEdge("AST", graph.node(1000112))
+    graph.node(1000111).addEdge("AST", graph.node(1000117))
+    graph.node(1000112).addEdge("ARGUMENT", graph.node(1000113))
+    graph.node(1000112).addEdge("ARGUMENT", graph.node(1000116))
+    graph.node(1000112).addEdge("AST", graph.node(1000113))
+    graph.node(1000112).addEdge("AST", graph.node(1000116))
+    graph.node(1000113).addEdge("ARGUMENT", graph.node(1000114))
+    graph.node(1000113).addEdge("ARGUMENT", graph.node(1000115))
+    graph.node(1000113).addEdge("AST", graph.node(1000114))
+    graph.node(1000113).addEdge("AST", graph.node(1000115))
+    graph.node(1000114).addEdge("REF", graph.node(1000104))
+    graph.node(1000118).addEdge("AST", graph.node(1000119))
+    graph.node(1000118).addEdge("AST", graph.node(1000122))
+    graph.node(1000119).addEdge("ARGUMENT", graph.node(1000120))
+    graph.node(1000119).addEdge("ARGUMENT", graph.node(1000121))
+    graph.node(1000119).addEdge("AST", graph.node(1000120))
+    graph.node(1000119).addEdge("AST", graph.node(1000121))
+    graph.node(1000122).addEdge("ARGUMENT", graph.node(1000123))
+    graph.node(1000122).addEdge("AST", graph.node(1000123))
+    graph.node(1000124).addEdge("ARGUMENT", graph.node(1000125))
+    graph.node(1000124).addEdge("AST", graph.node(1000125))
+    graph.node(1000126).addEdge("ARGUMENT", graph.node(1000127))
+    graph.node(1000126).addEdge("AST", graph.node(1000127))
 
 
     println("CPG:")
     itr = cpg.graph.nodes()
     while(itr.hasNext)
       println(itr.next())
+
+    println("Edges:")
+    itrEdges = cpg.graph.edges()
+    while(itrEdges.hasNext) {
+      var edge = itrEdges.next()
+      println(edge)
+
+      var innerItr = edge.bothNodes()
+      while(innerItr.hasNext)
+        println(innerItr.next())
+
+      println("")
+    }
 
     new CfgCreationPass(cpg, functionKeyPools.last).createAndApply() // MARK
     new StubRemovalPass(cpg).createAndApply()
