@@ -12,9 +12,6 @@ libraryDependencies ++= Seq(
   "com.novocode"         %  "junit-interface"          % "0.11"  % Test,
   "junit"                %  "junit"                    % "4.12"  % Test,
   "org.scalatest"        %% "scalatest"                % Versions.scalatest % Test,
-  // "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.12.0",
-  //"org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2",
-  //"org.json" % "json" % "20201115",
   "org.json4s" %% "json4s-native" % "3.7.0-M7",
 )
 
