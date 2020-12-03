@@ -490,12 +490,28 @@ class FuzzyC2Cpg() {
     printNodes(graph)
     printEdges(graph)
 
-    val usedTypes = List("void", "char *", "ANY", "int", "char * [ ]")
+    val usedTypes = collectUsedTypes(graph)
 
     new CfgCreationPass(cpg, functionKeyPools.last).createAndApply() // MARK
     new StubRemovalPass(cpg).createAndApply()
     new TypeNodePass(/*astCreator.global.usedTypes.keys().asScala.toList*/ usedTypes, cpg, Some(typesKeyPool)).createAndApply()
     cpg
+  }
+
+  def collectUsedTypes(graph: Graph): List[String] = {
+    var usedTypes = List[String]()
+
+    val itr = graph.nodes()
+    while(itr.hasNext) {
+      val node = itr.next()
+      if(node.propertyMap().containsKey("TYPE_FULL_NAME")) {
+        val usedType = node.propertyMap().get("TYPE_FULL_NAME")
+        if(!usedTypes.contains(usedType)) {
+          usedTypes = usedTypes.appended(usedType.asInstanceOf[String])
+        }
+      }
+    }
+    usedTypes
   }
 
   /**
