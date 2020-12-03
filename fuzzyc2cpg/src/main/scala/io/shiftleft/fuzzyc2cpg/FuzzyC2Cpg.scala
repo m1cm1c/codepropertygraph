@@ -1,5 +1,7 @@
 package io.shiftleft.fuzzyc2cpg
 
+import java.io.FileInputStream
+
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
@@ -11,7 +13,27 @@ import io.shiftleft.passes.IntervalKeyPool
 import io.shiftleft.semanticcpg.passes.CfgCreationPass
 import io.shiftleft.x2cpg.SourceFiles
 import overflowdb.{Config, Graph, Node}
+/*
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.json.JsonMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+*/
+/*
+import scala.util.parsing.json._
+*/
+/*
+import org.json.JSONArray
+import org.json.JSONObject
+*/
+import org.json4s._
+import org.json4s.native.JsonMethods._
 
+
+/*
+import scala.tools.nsc.doc.html.page.JSONArray
+import scala.tools.nsc.doc.html.page.JSONObject
+*/
 import scala.collection.mutable.ListBuffer
 import scala.util.control.NonFatal
 import scala.jdk.CollectionConverters._
@@ -140,6 +162,49 @@ class FuzzyC2Cpg() {
     // TODO: Wieso wird die AST-Edge von "io.shiftleft.codepropertygraph.generated.nodes.NamespaceBlock[label=NAMESPACE_BLOCK; id=1000101]" zu
     // TODO: "io.shiftleft.codepropertygraph.generated.nodes.Method[label=METHOD; id=1000102]" nicht entfernt, obwohl der Ziel-Knoten entfernt wird?
 */
+
+    /*
+    println("parsing json")
+    val mapper = JsonMapper.builder()
+      .addModule(DefaultScalaModule)
+      .build()
+    println("parsing json")
+    mapper.registerModule(DefaultScalaModule)
+    println("parsing json")
+    val obj = mapper.readValue[Object]("{ a: 'bc', b: 'qre' }")
+    println("parsed json")
+    println(obj)
+    println("parsed json")
+*/
+    /*
+    println("parsing json")
+    val result = JSON.parseFull("{ a: 'bc', b: 'qre' }")
+    println("parsed json")
+    println(result)
+    println("parsed json")
+*/
+
+/*
+    val json = "{ a: 'bc', b: 'qre' }"
+    val obj = new JSONObject(json)
+    val pageName = obj.getJSONObject("pageInfo").getString("pageName")
+    println(pageName)
+    val arr = obj.getJSONArray("posts")
+    var i = 0
+    while (i < arr.length) {
+      val post_id = arr.getJSONObject(i).getString("post_id")
+      println(post_id)
+
+      i += 1
+    }
+ */
+
+    println("parsing json")
+    val obj = parse(""" { "numbers" : [1, 2, 3, 4] } """)
+    println("parsed json")
+    println(obj)
+    println("parsed json")
+
     // Recreating the initial CPG manually.
     graph.addNode(1000100, "FILE")
     graph.addNode(1000101, "NAMESPACE_BLOCK")
