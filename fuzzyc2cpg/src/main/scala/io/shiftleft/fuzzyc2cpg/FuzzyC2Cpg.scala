@@ -84,12 +84,12 @@ class FuzzyC2Cpg() {
 
   def printEdges(graph: Graph): Unit = {
     println("Edges:")
-    var itrEdges = graph.edges()
+    val itrEdges = graph.edges()
     while(itrEdges.hasNext) {
-      var edge = itrEdges.next()
+      val edge = itrEdges.next()
       println(edge)
 
-      var innerItr = edge.bothNodes()
+      val innerItr = edge.bothNodes()
       while(innerItr.hasNext)
         println(innerItr.next())
 
@@ -108,7 +108,7 @@ class FuzzyC2Cpg() {
     val functionKeyPools = KeyPools.obtain(2, 1000101)
 
     val cpg = initCpg(optionalOutputPath)
-    val sourceFileNames = SourceFiles.determine(sourcePaths, sourceFileExtensions)
+    //val sourceFileNames = SourceFiles.determine(sourcePaths, sourceFileExtensions)
 
     new CMetaDataPass(cpg, Some(metaDataKeyPool)).createAndApply()
     val graph = cpg.graph
@@ -492,8 +492,8 @@ class FuzzyC2Cpg() {
     graph.node(1000124).addEdge("AST", graph.node(1000125))
     graph.node(1000126).addEdge("ARGUMENT", graph.node(1000127))
     graph.node(1000126).addEdge("AST", graph.node(1000127))
-    printNodes(graph)
-    printEdges(graph)
+    //printNodes(graph)
+    //printEdges(graph)
 
     val usedTypes = collectUsedTypes(graph)
 
