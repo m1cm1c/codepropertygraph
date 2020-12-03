@@ -114,6 +114,7 @@ class FuzzyC2Cpg() {
     //printNodes(graph)
     //printEdges(graph)
 
+    /*
     val astCreator = new AstCreationPass(sourceFileNames, cpg, functionKeyPools.head)
     astCreator.createAndApply() // MARK
 
@@ -138,8 +139,10 @@ class FuzzyC2Cpg() {
     }
     // TODO: Wieso wird die AST-Edge von "io.shiftleft.codepropertygraph.generated.nodes.NamespaceBlock[label=NAMESPACE_BLOCK; id=1000101]" zu
     // TODO: "io.shiftleft.codepropertygraph.generated.nodes.Method[label=METHOD; id=1000102]" nicht entfernt, obwohl der Ziel-Knoten entfernt wird?
-
+*/
     // Recreating the initial CPG manually.
+    graph.addNode(1000100, "FILE")
+    graph.addNode(1000101, "NAMESPACE_BLOCK")
     graph.addNode(1000102, "METHOD")
     graph.addNode(1000103, "METHOD_PARAMETER_IN")
     graph.addNode(1000104, "METHOD_PARAMETER_IN")
@@ -167,6 +170,14 @@ class FuzzyC2Cpg() {
     graph.addNode(1000126, "CALL")
     graph.addNode(1000127, "LITERAL")
     graph.addNode(1000128, "METHOD_RETURN")
+
+    graph.node(1000100).setProperty("ORDER", -1)
+    graph.node(1000100).setProperty("NAME", "/home/christoph/.applications/x42/c/X42.c")
+
+    graph.node(1000101).setProperty("FULL_NAME", "/home/christoph/.applications/x42/c/X42.c:<global>")
+    graph.node(1000101).setProperty("ORDER", -1)
+    graph.node(1000101).setProperty("FILENAME", "")
+    graph.node(1000101).setProperty("NAME", "<global>")
 
     graph.node(1000102).setProperty("COLUMN_NUMBER", 0)
     graph.node(1000102).setProperty("LINE_NUMBER", 5)
@@ -430,6 +441,7 @@ class FuzzyC2Cpg() {
     graph.node(1000128).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
     graph.node(1000128).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
 
+    graph.node(1000100).addEdge("AST", graph.node(1000101))
     graph.node(1000101).addEdge("AST", graph.node(1000102)) // buggy edge (does not get removed when one of its nodes gets removed)
     graph.node(1000102).addEdge("AST", graph.node(1000103))
     graph.node(1000102).addEdge("AST", graph.node(1000104))
@@ -475,13 +487,14 @@ class FuzzyC2Cpg() {
     graph.node(1000124).addEdge("AST", graph.node(1000125))
     graph.node(1000126).addEdge("ARGUMENT", graph.node(1000127))
     graph.node(1000126).addEdge("AST", graph.node(1000127))
-
     printNodes(graph)
-    //printEdges(graph)
+    printEdges(graph)
+
+    val usedTypes = List("void", "char *", "ANY", "int", "char * [ ]")
 
     new CfgCreationPass(cpg, functionKeyPools.last).createAndApply() // MARK
     new StubRemovalPass(cpg).createAndApply()
-    new TypeNodePass(astCreator.global.usedTypes.keys().asScala.toList, cpg, Some(typesKeyPool)).createAndApply()
+    new TypeNodePass(/*astCreator.global.usedTypes.keys().asScala.toList*/ usedTypes, cpg, Some(typesKeyPool)).createAndApply()
     cpg
   }
 
