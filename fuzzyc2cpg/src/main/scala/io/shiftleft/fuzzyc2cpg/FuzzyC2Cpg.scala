@@ -13,6 +13,7 @@ import io.shiftleft.x2cpg.SourceFiles
 import overflowdb.{Config, Graph, Node}
 import org.json4s._
 import org.json4s.native.JsonMethods._
+import scala.io.Source
 
 import scala.collection.mutable.ListBuffer
 import scala.util.control.NonFatal
@@ -21,6 +22,7 @@ case class Global(usedTypes: ConcurrentHashMap[String, Boolean] = new Concurrent
 
 class FuzzyC2Cpg() {
   import FuzzyC2Cpg.logger
+  val BASE_ID = 1000100
 
   def runWithPreprocessorAndOutput(sourcePaths: Set[String],
                                    sourceFileExtensions: Set[String],
@@ -97,6 +99,155 @@ class FuzzyC2Cpg() {
     }
   }
 
+  def getField(jsonObject: JsonAST.JValue, attributeName: String) = {
+    jsonObject.findField(jfield => {jfield._1.equals(attributeName)}).get._2.values
+  }
+
+  def getFieldWrapped(jsonObject: JsonAST.JValue, attributeName: String) = {
+    jsonObject.findField(jfield => {jfield._1.equals(attributeName)}).get._2
+  }
+
+  def getFieldString(jsonObject: JsonAST.JValue, attributeName: String): String = {
+    getField(jsonObject, attributeName).toString
+  }
+
+  def getFieldInt(jsonObject: JsonAST.JValue, attributeName: String): Int = {
+    getFieldString(jsonObject, attributeName).toInt
+  }
+
+  def getFieldBoolean(jsonObject: JsonAST.JValue, attributeName: String): Boolean = {
+    getField(jsonObject, attributeName).equals(true)
+  }
+
+  def getFieldList(jsonObject: JsonAST.JValue, attributeName: String): List[Object] = {
+    getField(jsonObject, attributeName).asInstanceOf[List[Object]]
+  }
+
+  def registerFunction(graph: Graph, wrappedFunction: JsonAST.JValue): Unit = {
+    val functionId = getFieldInt(wrappedFunction, "id")
+    val functionAttributesWrapped = getFieldWrapped(wrappedFunction, "attributes")
+
+    val functionName = getFieldString(functionAttributesWrapped, "name")
+    val isImplemented = getFieldBoolean(functionAttributesWrapped, "implemented")
+
+    // Ignore unimplemented functions.
+    if(!isImplemented) {
+      return
+    }
+
+    require(getFieldString(functionAttributesWrapped, "kind").equals("function"))
+
+    graph.addNode(BASE_ID + functionId, "METHOD")
+    graph.node(BASE_ID + functionId).setProperty("COLUMN_NUMBER", 0)
+    graph.node(BASE_ID + functionId).setProperty("LINE_NUMBER", 0)
+    graph.node(BASE_ID + functionId).setProperty("COLUMN_NUMBER_END", 0)
+    graph.node(BASE_ID + functionId).setProperty("IS_EXTERNAL", false)
+    graph.node(BASE_ID + functionId).setProperty("SIGNATURE", "int main (int,char * [ ])")
+    graph.node(BASE_ID + functionId).setProperty("NAME", functionName)
+    graph.node(BASE_ID + functionId).setProperty("AST_PARENT_TYPE", "")
+    graph.node(BASE_ID + functionId).setProperty("AST_PARENT_FULL_NAME", "")
+    graph.node(BASE_ID + functionId).setProperty("ORDER", -1)
+    graph.node(BASE_ID + functionId).setProperty("CODE", "main (int argc,char *argv[])")
+    graph.node(BASE_ID + functionId).setProperty("FULL_NAME", functionName)
+    graph.node(BASE_ID + functionId).setProperty("LINE_NUMBER_END", 0)
+    graph.node(BASE_ID + functionId).setProperty("FILENAME", "")
+
+    graph.node(1000101).addEdge("AST", graph.node(BASE_ID + functionId))
+
+    val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
+    val parameterListComponent = functionComponentsWrapped.children(0)
+    val parameterList2Component = functionComponentsWrapped.children(1)
+    val bodyComponent = functionComponentsWrapped.children(2)
+
+    // Deal with function parameters.
+    println("---------")
+    println(parameterListComponent.values)
+    val parameterList = parameterListComponent.values.asInstanceOf[Map[String, List[Object]]]
+    var order = 1
+    for(attributeSpecificObject <- parameterList("children")) {
+      val attributeSpecificMap = attributeSpecificObject.asInstanceOf[Map[String, Object]]
+      val parameterId = attributeSpecificMap("id").toString.toInt
+      val attributeMap = attributeSpecificMap("attributes").asInstanceOf[Map[String, Object]]
+      val parameterName = attributeMap("name").toString
+      val parameterType = attributeMap("type").toString
+
+      graph.addNode(BASE_ID + parameterId, "METHOD_PARAMETER_IN")
+      graph.node(BASE_ID + parameterId).setProperty("ORDER", order)
+      graph.node(BASE_ID + parameterId).setProperty("CODE", parameterType + " " + parameterName)
+      graph.node(BASE_ID + parameterId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + parameterId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + parameterId).setProperty("TYPE_FULL_NAME", parameterName)
+      graph.node(BASE_ID + parameterId).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
+      graph.node(BASE_ID + parameterId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID + parameterId).setProperty("NAME", parameterName)
+
+      graph.node(BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + parameterId))
+
+      order += 1
+    }
+
+    println(functionId)
+    println(functionName)
+
+    // Deal with function body.
+    registerBlock(bodyComponent)
+    //graph.addNode(1000105, "BLOCK")
+
+    //val childrenElement = getField(wrappedFunction, "children")
+    //println(childrenElement)
+
+  }
+
+  def registerBlock(blockWrapped: JsonAST.JValue): Unit = {
+    require(getFieldString(blockWrapped, "name").equals("Block"))
+
+    val blockId = getFieldInt(blockWrapped, "id")
+    println("block id:")
+    println(blockId)
+
+    val statementsList = getFieldList(blockWrapped, "children")
+    println("statementsList:")
+    println(statementsList)
+    println("statementsList length:")
+    println(statementsList.length)
+    for(statement <- statementsList) {
+      val statementMap = statement.asInstanceOf[Map[String, Object]]
+      println(statementMap)
+      val statementName = statementMap("name").toString
+      val statementId = statementMap("id").toString.toInt
+      val statementChildren = statementMap("children").asInstanceOf[List[Map[String, Object]]]
+      println("Number of statement children: " + statementChildren.length)
+      println("Statement name: " + statementName)
+
+      if(statementName.equals("ExpressionStatement")) {
+        val operationId = statementChildren(0)("id").toString.toInt
+        val operationName = statementChildren(0)("name").toString
+        val operationAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
+        val operationChildren = statementChildren(0)("children").asInstanceOf[List[Object]]
+
+        if(operationName.equals("Assignment")) {
+          println("Handling Assignment")
+          require(operationAttributes("operator").toString.equals("="))
+          require(operationChildren.length == 2)
+
+          val assignmentLeftId = operationChildren(0).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]("referencedDeclaration").toString.toInt
+          val assignmentRightId = operationChildren(1).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]("referencedDeclaration").toString.toInt
+
+          println(assignmentLeftId + " <- " + assignmentRightId)
+
+          // TODO: store assignment nodes / edges / properties / whatever there is to store
+        }
+      } else {
+        println("panic!!! unknown statement with statement name: " + statementName)
+      }
+    }
+    println(statementsList.length)
+  }
+
+  def registerVariable(graph: Graph, wrappedFunction: JsonAST.JValue): Unit = {
+    // The AST this repo uses does not seem to care about global variables.
+  }
+
   def runAndOutput(sourcePaths: Set[String],
                    sourceFileExtensions: Set[String],
                    optionalOutputPath: Option[String] = None): Cpg = {
@@ -108,20 +259,22 @@ class FuzzyC2Cpg() {
     val functionKeyPools = KeyPools.obtain(2, 1000101)
 
     val cpg = initCpg(optionalOutputPath)
-    //val sourceFileNames = SourceFiles.determine(sourcePaths, sourceFileExtensions)
+    val sourceFileNames = SourceFiles.determine(sourcePaths, sourceFileExtensions)
 
     new CMetaDataPass(cpg, Some(metaDataKeyPool)).createAndApply()
     val graph = cpg.graph
     //printNodes(graph)
     //printEdges(graph)
 
-    /*
+/*
     val astCreator = new AstCreationPass(sourceFileNames, cpg, functionKeyPools.head)
     astCreator.createAndApply() // MARK
 
-    //printNodes(graph)
-    //printEdges(graph)
+    printNodes(graph)
+    printEdges(graph)
+ */
 
+/*
     // MARK: Einstiegspunkt
     // The first 4 nodes are: MetaData, NamespaceBlock, File, NamespaceBlock
     // All other nodes need to be deleted.
@@ -142,8 +295,33 @@ class FuzzyC2Cpg() {
     // TODO: "io.shiftleft.codepropertygraph.generated.nodes.Method[label=METHOD; id=1000102]" nicht entfernt, obwohl der Ziel-Knoten entfernt wird?
 */
 
-    val obj = parse(""" { "numbers" : [1, 2, 3, 4] } """)
-    println(obj)
+    graph.addNode(1000100, "FILE")
+    graph.addNode(1000101, "NAMESPACE_BLOCK")
+
+    val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast.json").getLines.mkString
+    val originalAst = parse(fileContents)
+
+    /*childrenOpt match {
+      case Some(children) => println(children._2)
+      case None => println("no children")
+    }*/
+
+    val contractLevel = originalAst.findField((jfield) => {jfield._1.equals("children")}).get._2
+      .children(0).findField((jfield) => {jfield._1.equals("children")}).get._2
+      .children
+    println(contractLevel)
+    println(contractLevel.length)
+
+    contractLevel.foreach(wrappedContractLevelElement => {
+      // This is equivalent to this JS code:
+      // let name = wrappedContractLevelElement.name
+      val name = wrappedContractLevelElement.findField(jfield => {jfield._1.equals("name")}).get._2.values.toString
+
+      name match {
+        case "FunctionDefinition" => registerFunction(graph, wrappedContractLevelElement)
+        case "VariableDeclaration" => registerVariable(graph, wrappedContractLevelElement)
+      }
+    })
 
     // Recreating the initial CPG manually.
     graph.addNode(1000100, "FILE")
