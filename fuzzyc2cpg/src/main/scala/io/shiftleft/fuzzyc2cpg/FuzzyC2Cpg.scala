@@ -303,9 +303,11 @@ class FuzzyC2Cpg() {
 
           if(assignmentRightKindName.equals("Identifier"))
             graph.node(BASE_ID + assignmentRightId).addEdge("REF", graph.node(BASE_ID + assignmentRightReferencedId))
+        } else if(statementName.equals("Block")) {
+          registerBlock(graph, anchorId, blockWrapped)
+        } else {
+          println("panic!!! unknown statement with statement name: " + statementName)
         }
-      } else {
-        println("panic!!! unknown statement with statement name: " + statementName)
       }
     }
     println(statementsList.length)
