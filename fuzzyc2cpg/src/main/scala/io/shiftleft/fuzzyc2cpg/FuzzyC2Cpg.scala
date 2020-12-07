@@ -244,21 +244,22 @@ class FuzzyC2Cpg() {
 
           val assignmentLeftId = operationChildren(0).asInstanceOf[Map[String, Object]]("id").toString.toInt
           val assignmentRightId = operationChildren(1).asInstanceOf[Map[String, Object]]("id").toString.toInt
+          val assignmentRightKindName = operationChildren(1).asInstanceOf[Map[String, Object]]("name").toString
 
           val assignmentLeftHandSide = operationChildren(0).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]
           val assignmentRightHandSide = operationChildren(1).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]
 
           val assignmentLeftReferencedId = assignmentLeftHandSide("referencedDeclaration").toString.toInt
           val assignmentRightReferencedId = assignmentRightHandSide("referencedDeclaration").toString.toInt
-          val assignmentLeftName = assignmentLeftHandSide("value").toString
-          val assignmentRightName = assignmentRightHandSide("value").toString
+          val assignmentLeftVariableName = assignmentLeftHandSide("value").toString
+          val assignmentRightVariableName = assignmentRightHandSide("value").toString
           println(assignmentLeftId + " <- " + assignmentRightId)
 
           // TODO: store assignment nodes / edges / properties / whatever there is to store
           graph.addNode(BASE_ID + operationId, "CALL")
           graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
           graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
-          graph.node(BASE_ID + operationId).setProperty("CODE", assignmentLeftName + " = " + assignmentRightName)
+          graph.node(BASE_ID + operationId).setProperty("CODE", assignmentLeftVariableName + " = " + assignmentRightVariableName)
           graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
           graph.node(BASE_ID + operationId).setProperty("METHOD_FULL_NAME", "<operator>.assignment")
           graph.node(BASE_ID + operationId).setProperty("TYPE_FULL_NAME", "ANY")
@@ -271,22 +272,23 @@ class FuzzyC2Cpg() {
           graph.addNode(BASE_ID + assignmentLeftId, "IDENTIFIER")
           graph.node(BASE_ID + assignmentLeftId).setProperty("ORDER", 1)
           graph.node(BASE_ID + assignmentLeftId).setProperty("ARGUMENT_INDEX", 1)
-          graph.node(BASE_ID + assignmentLeftId).setProperty("CODE", assignmentLeftName)
+          graph.node(BASE_ID + assignmentLeftId).setProperty("CODE", assignmentLeftVariableName)
           graph.node(BASE_ID + assignmentLeftId).setProperty("COLUMN_NUMBER", 0)
           graph.node(BASE_ID + assignmentLeftId).setProperty("TYPE_FULL_NAME", "ANY") // TODO: maybe set to operationDataType? Is not the case in the original CPG AST but might be an improvement.
           graph.node(BASE_ID + assignmentLeftId).setProperty("LINE_NUMBER", 0)
           graph.node(BASE_ID + assignmentLeftId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-          graph.node(BASE_ID + assignmentLeftId).setProperty("NAME", assignmentLeftName)
+          graph.node(BASE_ID + assignmentLeftId).setProperty("NAME", assignmentLeftVariableName)
 
-          graph.addNode(BASE_ID + assignmentRightId, "IDENTIFIER")
+          graph.addNode(BASE_ID + assignmentRightId, (if (assignmentRightKindName.equals("Identifier")) "IDENTIFIER" else "LITERAL"))
           graph.node(BASE_ID + assignmentRightId).setProperty("ORDER", 2)
           graph.node(BASE_ID + assignmentRightId).setProperty("ARGUMENT_INDEX", 2)
-          graph.node(BASE_ID + assignmentRightId).setProperty("CODE", assignmentRightName)
+          graph.node(BASE_ID + assignmentRightId).setProperty("CODE", assignmentRightVariableName)
           graph.node(BASE_ID + assignmentRightId).setProperty("COLUMN_NUMBER", 0)
-          graph.node(BASE_ID + assignmentRightId).setProperty("TYPE_FULL_NAME", operationDataType)
+          graph.node(BASE_ID + assignmentRightId).setProperty("TYPE_FULL_NAME", operationDataType) // Set to operationDataType instead fo "type" from "attributes" so it also works for literals. The latter would be something like "int_const 7" for literals.
           graph.node(BASE_ID + assignmentRightId).setProperty("LINE_NUMBER", 0)
           graph.node(BASE_ID + assignmentRightId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-          graph.node(BASE_ID + assignmentRightId).setProperty("NAME", assignmentRightName)
+          if(assignmentRightKindName.equals("Identifier"))
+            graph.node(BASE_ID + assignmentRightId).setProperty("NAME", assignmentRightVariableName)
 
           graph.node(BASE_ID + blockId).addEdge("AST", graph.node(BASE_ID + operationId))
 
@@ -299,7 +301,8 @@ class FuzzyC2Cpg() {
           // TODO: comment back in after including global variables
           // graph.node(BASE_ID + assignmentLeftId).addEdge("REF", graph.node(BASE_ID + assignmentLeftReferencedId))
 
-          graph.node(BASE_ID + assignmentRightId).addEdge("REF", graph.node(BASE_ID + assignmentRightReferencedId))
+          if(assignmentRightKindName.equals("Identifier"))
+            graph.node(BASE_ID + assignmentRightId).addEdge("REF", graph.node(BASE_ID + assignmentRightReferencedId))
         }
       } else {
         println("panic!!! unknown statement with statement name: " + statementName)
