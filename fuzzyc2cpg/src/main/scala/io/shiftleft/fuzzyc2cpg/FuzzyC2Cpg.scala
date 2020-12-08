@@ -497,6 +497,7 @@ class FuzzyC2Cpg() {
 
         graph.addNode(1000100, "FILE")
         graph.addNode(1000101, "NAMESPACE_BLOCK")
+        graph.node(1000100).addEdge("AST", graph.node(1000101))
 
         val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast6.json").getLines.mkString
         val originalAst = parse(fileContents)
