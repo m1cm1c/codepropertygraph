@@ -323,14 +323,22 @@ class FuzzyC2Cpg() {
         graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + subBlockId))
       }
       case "ifStatement" => {
-        // TODO: if w/o binary operation; binary operation in other places (generalization)
-        // TODO: BINARY OPERATION PART: ast.children[0].children[3].children[2].children[0].children[0]
-        val operationId = statementChildren(0)("id").toString.toInt
-        val operationName = statementChildren(0)("name").toString
-        val operationDataType = statementChildren(0)("type").toString
-        val operationAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
-        val operationChildren = statementChildren(0)("children").asInstanceOf[List[Object]]
+        graph.addNode(BASE_ID + operationId, "CONTROL_STRUCTURE")
+        graph.node(BASE_ID + operationId).setProperty("PARSER_TYPE_NAME", "IfStatement")
+        graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
+        graph.node(BASE_ID + operationId).setProperty("LINE_NUMBER", 0)
+        graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
+        graph.node(BASE_ID + operationId).setProperty("CODE", "")
+        graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
 
+        val conditionId = registerStatement(graph, statementChildren(0))
+        val actionId = registerStatement(graph, statementChildren(1))
+
+        graph.node(BASE_ID + operationId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
+        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + conditionId))
+        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + actionId))
+      }
+      case "BinaryOperation" => {
         require(operationName.equals("BinaryOperation"))
         require(operationDataType.equals("bool"))
 
@@ -344,21 +352,18 @@ class FuzzyC2Cpg() {
           case _ => "<operator>.ERROR"
         }
 
-        val conditionId = registerStatement(graph, statementChildren(0))
-        val actionId = registerStatement(graph, statementChildren(1))
-
-        graph.addNode(1000106, "CONTROL_STRUCTURE")
-        graph.node(1000106).setProperty("PARSER_TYPE_NAME", "IfStatement")
-        graph.node(1000106).setProperty("ORDER", 1)
-        graph.node(1000106).setProperty("LINE_NUMBER", 6)
-        graph.node(1000106).setProperty("ARGUMENT_INDEX", 1)
-        graph.node(1000106).setProperty("CODE", "if (argc > 1 && strcmp(argv[1], \"42\") == 0)")
-        graph.node(1000106).setProperty("COLUMN_NUMBER", 2)
-
-        // TODO: BLOCK PART: ast.children[0].children[3].children[2].children[0].children[1]
-      }
-      case "BinaryOperation" => {
-
+        graph.addNode(BASE_ID + operationId, "CALL")
+        graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
+        graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
+        graph.node(BASE_ID + operationId).setProperty("CODE", "")
+        graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
+        graph.node(BASE_ID + operationId).setProperty("METHOD_FULL_NAME", operatorName)
+        graph.node(BASE_ID + operationId).setProperty("TYPE_FULL_NAME", "ANY")
+        graph.node(BASE_ID + operationId).setProperty("LINE_NUMBER", 0)
+        graph.node(BASE_ID + operationId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+        graph.node(BASE_ID + operationId).setProperty("SIGNATURE", "TODO assignment signature")
+        graph.node(BASE_ID + operationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+        graph.node(BASE_ID + operationId).setProperty("NAME", operatorName)
       }
     }
 
@@ -386,7 +391,7 @@ class FuzzyC2Cpg() {
     val graph = cpg.graph
     //printNodes(graph)
     //printEdges(graph)
-
+/*
     println("##############################")
     val astCreator = new AstCreationPass(sourceFileNames, cpg, functionKeyPools.head)
     astCreator.createAndApply() // MARK
@@ -394,7 +399,7 @@ class FuzzyC2Cpg() {
     printNodes(graph)
     printEdges(graph)
     println("##############################")
-
+*/
 
 /*
     // MARK: Einstiegspunkt
@@ -444,6 +449,7 @@ class FuzzyC2Cpg() {
         case "VariableDeclaration" => registerVariable(graph, wrappedContractLevelElement)
       }
     })
+    println("processing completed")
 
     // Recreating the initial CPG manually.
     graph.addNode(1000100, "FILE")
