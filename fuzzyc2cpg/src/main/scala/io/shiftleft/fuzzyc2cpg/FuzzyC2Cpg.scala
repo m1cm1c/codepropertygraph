@@ -71,7 +71,7 @@ class FuzzyC2Cpg() {
   }
 
   def printNodes(graph: Graph): Unit = {
-    println("Nodes:")
+    println("Nodes: " + graph.nodeCount())
     val itr = graph.nodes()
     while(itr.hasNext) {
       val node = itr.next()
@@ -85,7 +85,7 @@ class FuzzyC2Cpg() {
   }
 
   def printEdges(graph: Graph): Unit = {
-    println("Edges:")
+    println("Edges:" + graph.edgeCount())
     val itrEdges = graph.edges()
     while(itrEdges.hasNext) {
       val edge = itrEdges.next()
