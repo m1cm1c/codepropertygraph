@@ -155,9 +155,10 @@ class FuzzyC2Cpg() {
     graph.node(1000101).addEdge("AST", graph.node(BASE_ID + functionId))
 
     val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
+    val functionComponents = getFieldList(wrappedFunction, "children")
     val parameterListComponent = functionComponentsWrapped.children(0)
     val parameterList2Component = functionComponentsWrapped.children(1)
-    val bodyComponent = functionComponentsWrapped.children(2)
+    val bodyComponent = functionComponents(2)
 
     // Deal with function parameters.
     println("---------")
@@ -188,9 +189,9 @@ class FuzzyC2Cpg() {
 
     println(functionId)
     println(functionName)
-
+    
     // Deal with function body.
-    val blockId = registerBlock(graph, bodyComponent)
+    val blockId = registerBlock(graph, bodyComponent.asInstanceOf[Map[String, Object]])
     graph.node(BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + blockId))
 
     //val childrenElement = getField(wrappedFunction, "children")
@@ -198,10 +199,11 @@ class FuzzyC2Cpg() {
 
   }
 
-  def registerBlock(graph: Graph, blockWrapped: JsonAST.JValue): Int = {
-    require(getFieldString(blockWrapped, "name").equals("Block"))
+  def registerBlock(graph: Graph, block: Map[String, Object]): Int = {
+    println(block("name"))
+    require(block("name").asInstanceOf[String].equals("Block"))
 
-    val blockId = getFieldInt(blockWrapped, "id")
+    val blockId = block("id").toString.toInt
     println("block id:")
     println(blockId)
     graph.addNode(BASE_ID + blockId, "BLOCK")
@@ -213,14 +215,14 @@ class FuzzyC2Cpg() {
     graph.node(BASE_ID + blockId).setProperty("LINE_NUMBER", 5)
     graph.node(BASE_ID + blockId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
 
-    val statementsList = getFieldList(blockWrapped, "children")
+    val statementsList = block("children").asInstanceOf[List[Object]]
     println("statementsList:")
     println(statementsList)
     println("statementsList length:")
     println(statementsList.length)
     for(statement <- statementsList) {
-        val statementId = registerStatement(graph, statement)
-        graph.node(BASE_ID + blockId).addEdge("AST", graph.node(BASE_ID + statementId))
+      val statementId = registerStatement(graph, statement)
+      graph.node(BASE_ID + blockId).addEdge("AST", graph.node(BASE_ID + statementId))
     }
     println(statementsList.length)
 
@@ -237,17 +239,55 @@ class FuzzyC2Cpg() {
     println("Statement name: " + statementName)
 
     if(!statementName.equals("ExpressionStatement") && !statementName.equals("Block")
-      && !statementName.equals("ifStatement")) {
+      && !statementName.equals("IfStatement") && !statementName.equals("BinaryOperation")) {
       println("panic!!! unknown statement with statement name: " + statementName)
       return 0
     }
 
-    val operationId = statementChildren(0)("id").toString.toInt
+    val operationId = statementId
+    if(statementName.equals("Block")) {
+      val subBlockId = registerBlock(graph, statementMap)
+      println(operationId)
+      graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + subBlockId))
+      return operationId
+    }
+
+    if(statementName.equals("BinaryOperation")) {
+      val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
+      val statementDataType = statementAttributes("type").toString
+      require(statementName.equals("BinaryOperation"))
+      require(statementDataType.equals("bool"))
+
+      val operatorName = statementAttributes("operator").toString match {
+        case ">" => "<operator>.greaterThan"
+        case "<" => "<operator>.lessThan"
+        case ">" => "<operator>.greaterThan"
+        case "==" => "<operator>.equals"
+        case "&&" => "<operator>.logicalAnd"
+        case "||" => "<operator>.logicalOr" // TODO: not, inequality, bit operators, shift, arithmetic, geq, leq
+        case _ => "<operator>.ERROR"
+      }
+
+      graph.addNode(BASE_ID + operationId, "CALL")
+      graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
+      graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
+      graph.node(BASE_ID + operationId).setProperty("CODE", "")
+      graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + operationId).setProperty("METHOD_FULL_NAME", operatorName)
+      graph.node(BASE_ID + operationId).setProperty("TYPE_FULL_NAME", "ANY")
+      graph.node(BASE_ID + operationId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + operationId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+      graph.node(BASE_ID + operationId).setProperty("SIGNATURE", "TODO assignment signature")
+      graph.node(BASE_ID + operationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID + operationId).setProperty("NAME", operatorName)
+
+      return operationId
+    }
+
     val operationName = statementChildren(0)("name").toString
     val operationAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
-    val operationChildren = statementChildren(0)("children").asInstanceOf[List[Object]]
-
     val operationDataType = operationAttributes("type").toString
+    val operationChildren = statementChildren(0)("children").asInstanceOf[List[Object]]
 
     val statementLeftId = operationChildren(0).asInstanceOf[Map[String, Object]]("id").toString.toInt
     val statementRightId = operationChildren(1).asInstanceOf[Map[String, Object]]("id").toString.toInt
@@ -256,73 +296,80 @@ class FuzzyC2Cpg() {
     val statementLeftHandSide = operationChildren(0).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]
     val statementRightHandSide = operationChildren(1).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]
 
-    val statementLeftReferencedId = statementLeftHandSide("referencedDeclaration").toString.toInt
-    val statementRightReferencedId = statementRightHandSide("referencedDeclaration").toString.toInt
-    val statementLeftVariableName = statementLeftHandSide("value").toString
-    val statementRightVariableName = statementRightHandSide("value").toString
-
     statementName match {
       case "ExpressionStatement" => {
-        if (operationName.equals("Assignment")) {
-          println("Handling Assignment")
-          require(operationAttributes("operator").toString.equals("="))
-          require(operationChildren.length == 2)
+        println("Operation name: " + operationName)
+        operationName match {
+          case "Assignment" => {
+            println("Handling Assignment")
+            require(operationAttributes("operator").toString.equals("="))
+            require(operationChildren.length == 2)
 
-          println(statementLeftId + " <- " + statementRightId)
+            println(statementLeftId + " <- " + statementRightId)
 
-          // TODO: store assignment nodes / edges / properties / whatever there is to store
-          graph.addNode(BASE_ID + operationId, "CALL")
-          graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
-          graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
-          graph.node(BASE_ID + operationId).setProperty("CODE", statementLeftVariableName + " = " + statementRightVariableName)
-          graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
-          graph.node(BASE_ID + operationId).setProperty("METHOD_FULL_NAME", "<operator>.assignment")
-          graph.node(BASE_ID + operationId).setProperty("TYPE_FULL_NAME", "ANY")
-          graph.node(BASE_ID + operationId).setProperty("LINE_NUMBER", 0)
-          graph.node(BASE_ID + operationId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
-          graph.node(BASE_ID + operationId).setProperty("SIGNATURE", "TODO assignment signature")
-          graph.node(BASE_ID + operationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-          graph.node(BASE_ID + operationId).setProperty("NAME", "<operator>.assignment")
+            val statementLeftReferencedId = statementLeftHandSide("referencedDeclaration").toString.toInt
+            val statementLeftVariableName = statementLeftHandSide("value").toString
+            val statementRightVariableName = statementRightHandSide("value").toString
 
-          graph.addNode(BASE_ID + statementLeftId, "IDENTIFIER")
-          graph.node(BASE_ID + statementLeftId).setProperty("ORDER", 1)
-          graph.node(BASE_ID + statementLeftId).setProperty("ARGUMENT_INDEX", 1)
-          graph.node(BASE_ID + statementLeftId).setProperty("CODE", statementLeftVariableName)
-          graph.node(BASE_ID + statementLeftId).setProperty("COLUMN_NUMBER", 0)
-          graph.node(BASE_ID + statementLeftId).setProperty("TYPE_FULL_NAME", "ANY") // TODO: maybe set to operationDataType? Is not the case in the original CPG AST but might be an improvement.
-          graph.node(BASE_ID + statementLeftId).setProperty("LINE_NUMBER", 0)
-          graph.node(BASE_ID + statementLeftId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-          graph.node(BASE_ID + statementLeftId).setProperty("NAME", statementLeftVariableName)
+            // TODO: store assignment nodes / edges / properties / whatever there is to store
+            graph.addNode(BASE_ID + operationId, "CALL")
+            graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
+            graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
+            graph.node(BASE_ID + operationId).setProperty("CODE", statementLeftVariableName + " = " + statementRightVariableName)
+            graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
+            graph.node(BASE_ID + operationId).setProperty("METHOD_FULL_NAME", "<operator>.assignment")
+            graph.node(BASE_ID + operationId).setProperty("TYPE_FULL_NAME", "ANY")
+            graph.node(BASE_ID + operationId).setProperty("LINE_NUMBER", 0)
+            graph.node(BASE_ID + operationId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+            graph.node(BASE_ID + operationId).setProperty("SIGNATURE", "TODO assignment signature")
+            graph.node(BASE_ID + operationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+            graph.node(BASE_ID + operationId).setProperty("NAME", "<operator>.assignment")
 
-          graph.addNode(BASE_ID + statementRightId, (if (statementRightKindName.equals("Identifier")) "IDENTIFIER" else "LITERAL"))
-          graph.node(BASE_ID + statementRightId).setProperty("ORDER", 2)
-          graph.node(BASE_ID + statementRightId).setProperty("ARGUMENT_INDEX", 2)
-          graph.node(BASE_ID + statementRightId).setProperty("CODE", statementRightVariableName)
-          graph.node(BASE_ID + statementRightId).setProperty("COLUMN_NUMBER", 0)
-          graph.node(BASE_ID + statementRightId).setProperty("TYPE_FULL_NAME", operationDataType) // Set to operationDataType instead fo "type" from "attributes" so it also works for literals. The latter would be something like "int_const 7" for literals.
-          graph.node(BASE_ID + statementRightId).setProperty("LINE_NUMBER", 0)
-          graph.node(BASE_ID + statementRightId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-          if (statementRightKindName.equals("Identifier"))
-            graph.node(BASE_ID + statementRightId).setProperty("NAME", statementRightVariableName)
+            graph.addNode(BASE_ID + statementLeftId, "IDENTIFIER")
+            graph.node(BASE_ID + statementLeftId).setProperty("ORDER", 1)
+            graph.node(BASE_ID + statementLeftId).setProperty("ARGUMENT_INDEX", 1)
+            graph.node(BASE_ID + statementLeftId).setProperty("CODE", statementLeftVariableName)
+            graph.node(BASE_ID + statementLeftId).setProperty("COLUMN_NUMBER", 0)
+            graph.node(BASE_ID + statementLeftId).setProperty("TYPE_FULL_NAME", "ANY") // TODO: maybe set to operationDataType? Is not the case in the original CPG AST but might be an improvement.
+            graph.node(BASE_ID + statementLeftId).setProperty("LINE_NUMBER", 0)
+            graph.node(BASE_ID + statementLeftId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+            graph.node(BASE_ID + statementLeftId).setProperty("NAME", statementLeftVariableName)
 
-          graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + statementLeftId))
-          graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
+            graph.addNode(BASE_ID + statementRightId, (if (statementRightKindName.equals("Identifier")) "IDENTIFIER" else "LITERAL"))
+            graph.node(BASE_ID + statementRightId).setProperty("ORDER", 2)
+            graph.node(BASE_ID + statementRightId).setProperty("ARGUMENT_INDEX", 2)
+            graph.node(BASE_ID + statementRightId).setProperty("CODE", statementRightVariableName)
+            graph.node(BASE_ID + statementRightId).setProperty("COLUMN_NUMBER", 0)
+            graph.node(BASE_ID + statementRightId).setProperty("TYPE_FULL_NAME", operationDataType) // Set to operationDataType instead fo "type" from "attributes" so it also works for literals. The latter would be something like "int_const 7" for literals.
+            graph.node(BASE_ID + statementRightId).setProperty("LINE_NUMBER", 0)
+            graph.node(BASE_ID + statementRightId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+            if (statementRightKindName.equals("Identifier"))
+              graph.node(BASE_ID + statementRightId).setProperty("NAME", statementRightVariableName)
 
-          graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + statementRightId))
-          graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + statementRightId))
+            graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + statementLeftId))
+            graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
 
-          // TODO: comment back in after including global variables
-          // graph.node(BASE_ID + statementLeftId).addEdge("REF", graph.node(BASE_ID + statementLeftReferencedId))
+            graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + statementRightId))
+            graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + statementRightId))
 
-          if (statementRightKindName.equals("Identifier"))
-            graph.node(BASE_ID + statementRightId).addEdge("REF", graph.node(BASE_ID + statementRightReferencedId))
+            // TODO: comment back in after including global variables
+            // graph.node(BASE_ID + statementLeftId).addEdge("REF", graph.node(BASE_ID + statementLeftReferencedId))
+
+            if (statementRightKindName.equals("Identifier")) {
+              val statementRightReferencedId = statementRightHandSide("referencedDeclaration").toString.toInt
+              graph.node(BASE_ID + statementRightId).addEdge("REF", graph.node(BASE_ID + statementRightReferencedId))
+            }
+          }
+          case "FunctionCall" => {
+            println("function calls are not yet implemented")
+            // TODO
+          }
+          case _ => {
+            println("unknown operation")
+          }
         }
       }
-      case "Block" => {
-        val subBlockId = registerBlock(graph, statementMap("children").asInstanceOf[JsonAST.JValue])
-        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + subBlockId))
-      }
-      case "ifStatement" => {
+      case "IfStatement" => {
         graph.addNode(BASE_ID + operationId, "CONTROL_STRUCTURE")
         graph.node(BASE_ID + operationId).setProperty("PARSER_TYPE_NAME", "IfStatement")
         graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
@@ -332,38 +379,11 @@ class FuzzyC2Cpg() {
         graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
 
         val conditionId = registerStatement(graph, statementChildren(0))
-        val actionId = registerStatement(graph, statementChildren(1))
+        val actionId = registerBlock(graph, statementChildren(1))
 
         graph.node(BASE_ID + operationId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
         graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + conditionId))
         graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + actionId))
-      }
-      case "BinaryOperation" => {
-        require(operationName.equals("BinaryOperation"))
-        require(operationDataType.equals("bool"))
-
-        val operatorName = operationAttributes("operator").toString match {
-          case ">" => "<operator>.greaterThan"
-          case "<" => "<operator>.lessThan"
-          case ">" => "<operator>.greaterThan"
-          case "==" => "<operator>.equals"
-          case "&&" => "<operator>.logicalAnd"
-          case "||" => "<operator>.logicalOr" // TODO: not, inequality, bit operators, shift, arithmetic, geq, leq
-          case _ => "<operator>.ERROR"
-        }
-
-        graph.addNode(BASE_ID + operationId, "CALL")
-        graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
-        graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
-        graph.node(BASE_ID + operationId).setProperty("CODE", "")
-        graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
-        graph.node(BASE_ID + operationId).setProperty("METHOD_FULL_NAME", operatorName)
-        graph.node(BASE_ID + operationId).setProperty("TYPE_FULL_NAME", "ANY")
-        graph.node(BASE_ID + operationId).setProperty("LINE_NUMBER", 0)
-        graph.node(BASE_ID + operationId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
-        graph.node(BASE_ID + operationId).setProperty("SIGNATURE", "TODO assignment signature")
-        graph.node(BASE_ID + operationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-        graph.node(BASE_ID + operationId).setProperty("NAME", operatorName)
       }
     }
 
@@ -425,7 +445,7 @@ class FuzzyC2Cpg() {
     graph.addNode(1000100, "FILE")
     graph.addNode(1000101, "NAMESPACE_BLOCK")
 
-    val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast.json").getLines.mkString
+    val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast4.json").getLines.mkString
     val originalAst = parse(fileContents)
 
     /*childrenOpt match {
