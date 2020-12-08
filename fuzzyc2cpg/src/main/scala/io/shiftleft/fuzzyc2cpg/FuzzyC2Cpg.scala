@@ -157,7 +157,7 @@ class FuzzyC2Cpg() {
     val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
     val functionComponents = getFieldList(wrappedFunction, "children")
     val parameterListComponent = functionComponentsWrapped.children(0)
-    val parameterList2Component = functionComponentsWrapped.children(1)
+    val parameterList2Component = functionComponentsWrapped.children(1) // TODO: could be return values?
     val bodyComponent = functionComponents(2)
 
     // Deal with function parameters.
@@ -187,9 +187,20 @@ class FuzzyC2Cpg() {
       order += 1
     }
 
+    graph.addNode(2*BASE_ID + functionId, "METHOD_RETURN")
+    graph.node(2*BASE_ID + functionId).setProperty("ORDER", 4)
+    graph.node(2*BASE_ID + functionId).setProperty("CODE", "RET")
+    graph.node(2*BASE_ID + functionId).setProperty("COLUMN_NUMBER", 0)
+    graph.node(2*BASE_ID + functionId).setProperty("LINE_NUMBER", 0)
+    graph.node(2*BASE_ID + functionId).setProperty("TYPE_FULL_NAME", "int") // TODO
+    graph.node(2*BASE_ID + functionId).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
+    graph.node(2*BASE_ID + functionId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+    graph.node(BASE_ID + functionId).addEdge("AST", graph.node(2*BASE_ID + functionId))
+
     println(functionId)
     println(functionName)
-    
+
     // Deal with function body.
     val blockId = registerBlock(graph, bodyComponent.asInstanceOf[Map[String, Object]])
     graph.node(BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + blockId))
@@ -445,7 +456,7 @@ class FuzzyC2Cpg() {
     graph.addNode(1000100, "FILE")
     graph.addNode(1000101, "NAMESPACE_BLOCK")
 
-    val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast4.json").getLines.mkString
+    val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast5.json").getLines.mkString
     val originalAst = parse(fileContents)
 
     /*childrenOpt match {
@@ -470,7 +481,7 @@ class FuzzyC2Cpg() {
       }
     })
     println("processing completed")
-
+/*
     // Recreating the initial CPG manually.
     graph.addNode(1000100, "FILE")
     graph.addNode(1000101, "NAMESPACE_BLOCK")
@@ -820,7 +831,7 @@ class FuzzyC2Cpg() {
     graph.node(1000126).addEdge("AST", graph.node(1000127))
     //printNodes(graph)
     //printEdges(graph)
-
+*/
     val usedTypes = collectUsedTypes(graph)
 
     new CfgCreationPass(cpg, functionKeyPools.last).createAndApply() // MARK
