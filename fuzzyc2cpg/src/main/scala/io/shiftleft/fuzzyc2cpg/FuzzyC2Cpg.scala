@@ -499,6 +499,15 @@ class FuzzyC2Cpg() {
 
         graph.addNode(1000100, "FILE")
         graph.addNode(1000101, "NAMESPACE_BLOCK")
+
+        graph.node(1000100).setProperty("ORDER", -1)
+        graph.node(1000100).setProperty("NAME", "/home/christoph/.applications/x42/c/X42.c")
+
+        graph.node(1000101).setProperty("FULL_NAME", "/home/christoph/.applications/x42/c/X42.c:<global>")
+        graph.node(1000101).setProperty("ORDER", -1)
+        graph.node(1000101).setProperty("FILENAME", "")
+        graph.node(1000101).setProperty("NAME", "<global>")
+
         graph.node(1000100).addEdge("AST", graph.node(1000101))
 
         val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast6.json").getLines.mkString
