@@ -219,14 +219,15 @@ class FuzzyC2Cpg() {
     println("statementsList length:")
     println(statementsList.length)
     for(statement <- statementsList) {
-        registerStatement(graph, blockId, statement)
+        val statementId = registerStatement(graph, statement)
+        graph.node(BASE_ID + blockId).addEdge("AST", graph.node(BASE_ID + statementId))
     }
     println(statementsList.length)
 
     blockId
   }
 
-  def registerStatement(graph: Graph, blockId: Int, statement: Object) {
+  def registerStatement(graph: Graph, statement: Object): Int = {
     val statementMap = statement.asInstanceOf[Map[String, Object]]
     println(statementMap)
     val statementName = statementMap("name").toString
@@ -238,7 +239,7 @@ class FuzzyC2Cpg() {
     if(!statementName.equals("ExpressionStatement") && !statementName.equals("Block")
       && !statementName.equals("ifStatement")) {
       println("panic!!! unknown statement with statement name: " + statementName)
-      return
+      return 0
     }
 
     val operationId = statementChildren(0)("id").toString.toInt
@@ -304,8 +305,6 @@ class FuzzyC2Cpg() {
           if (statementRightKindName.equals("Identifier"))
             graph.node(BASE_ID + statementRightId).setProperty("NAME", statementRightVariableName)
 
-          graph.node(BASE_ID + blockId).addEdge("AST", graph.node(BASE_ID + operationId))
-
           graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + statementLeftId))
           graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
 
@@ -321,7 +320,7 @@ class FuzzyC2Cpg() {
       }
       case "Block" => {
         val subBlockId = registerBlock(graph, statementMap("children").asInstanceOf[JsonAST.JValue])
-        graph.node(BASE_ID + blockId).addEdge("AST", graph.node(BASE_ID + blockId))
+        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + subBlockId))
       }
       case "ifStatement" => {
         // TODO: if w/o binary operation; binary operation in other places (generalization)
@@ -345,6 +344,9 @@ class FuzzyC2Cpg() {
           case _ => "<operator>.ERROR"
         }
 
+        val conditionId = registerStatement(graph, statementChildren(0))
+        val actionId = registerStatement(graph, statementChildren(1))
+
         graph.addNode(1000106, "CONTROL_STRUCTURE")
         graph.node(1000106).setProperty("PARSER_TYPE_NAME", "IfStatement")
         graph.node(1000106).setProperty("ORDER", 1)
@@ -355,9 +357,12 @@ class FuzzyC2Cpg() {
 
         // TODO: BLOCK PART: ast.children[0].children[3].children[2].children[0].children[1]
       }
+      case "BinaryOperation" => {
+
+      }
     }
 
-    graph.node(BASE_ID + blockId).addEdge("AST", graph.node(BASE_ID + operationId))
+    operationId
   }
 
   def registerVariable(graph: Graph, wrappedFunction: JsonAST.JValue): Unit = {
