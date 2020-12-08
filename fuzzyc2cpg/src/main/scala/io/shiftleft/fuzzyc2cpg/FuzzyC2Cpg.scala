@@ -333,6 +333,8 @@ class FuzzyC2Cpg() {
       // to a Local node directly via an argument edge.
       assignmentHelper(graph, operationId, variableDataType, 1*BASE_ID + declarationOperationId, assignmentOperationId, variableName, rightVariableName, rightKindName, assignmentAttributes)
       println("exited assignment helper")
+      graph.node(BASE_ID + (1*BASE_ID + declarationOperationId)).addEdge("REF", graph.node(BASE_ID + declarationOperationId))
+
 
       return Array(declarationOperationId, operationId)
     }
