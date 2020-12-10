@@ -246,10 +246,41 @@ class FuzzyC2Cpg() {
     val statementMap = statement.asInstanceOf[Map[String, Object]]
     println(statementMap)
     val statementName = statementMap("name").toString
+    println("Statement name: " + statementName)
     val statementId = statementMap("id").toString.toInt
+    println("Statement ID: " + statementId)
+
+    if(statementName.equals("Literal") || statementName.equals("Identifier")) {
+      val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
+      graph.addNode(BASE_ID + statementId, (if (statementName.equals("Identifier")) "IDENTIFIER" else "LITERAL"))
+      graph.node(BASE_ID + statementId).setProperty("ORDER", 2)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", 2)
+      graph.node(BASE_ID + statementId).setProperty("CODE", statementAttributes("value").toString)
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", statementAttributes("type").toString)
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      if (statementName.equals("Identifier")) {
+        graph.node(BASE_ID + statementId).setProperty("NAME", statementAttributes("value").toString)
+        val referencedId = statementAttributes("referencedDeclaration").toString.toInt
+        if(graph.node(BASE_ID + referencedId) != null) // TODO: Remove when supporting global variables.
+          graph.node(BASE_ID + statementId).addEdge("REF", graph.node(BASE_ID + referencedId))
+      }
+
+      return Array(statementId)
+    }
+
     val statementChildren = statementMap("children").asInstanceOf[List[Map[String, Object]]]
     println("Number of statement children: " + statementChildren.length)
-    println("Statement name: " + statementName)
+
+    // The CPG AST does not seem to know about tuple expressions,
+    // so their children get passed right through.
+    if(statementName.equals("TupleExpression")) {
+      println("Processing tuple expression")
+      require(statementChildren.length == 1)
+
+      return registerStatement(graph, statementChildren(0))
+    }
 
     if(!statementName.equals("ExpressionStatement") && !statementName.equals("Block")
       && !statementName.equals("IfStatement") && !statementName.equals("BinaryOperation")
@@ -269,8 +300,6 @@ class FuzzyC2Cpg() {
     if(statementName.equals("BinaryOperation")) {
       val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
       val statementDataType = statementAttributes("type").toString
-      require(statementName.equals("BinaryOperation"))
-      require(statementDataType.equals("bool"))
 
       val operatorName = statementAttributes("operator").toString match {
         case ">" => "<operator>.greaterThan"
@@ -294,6 +323,15 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + operationId).setProperty("SIGNATURE", "TODO assignment signature")
       graph.node(BASE_ID + operationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + operationId).setProperty("NAME", operatorName)
+
+      val idLeftChild = registerStatement(graph, statementChildren(0))(0)
+      val idRightChild = registerStatement(graph, statementChildren(1))(0)
+
+      graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + idLeftChild))
+      graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + idRightChild))
+
+      graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + idLeftChild))
+      graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + idRightChild))
 
       return Array(operationId)
     }
@@ -341,18 +379,20 @@ class FuzzyC2Cpg() {
 
     val operationAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
     val operationDataType = operationAttributes("type").toString
-    val operationChildren = statementChildren(0)("children").asInstanceOf[List[Object]]
-
-    val statementLeftId = operationChildren(0).asInstanceOf[Map[String, Object]]("id").toString.toInt
-    val statementRightId = operationChildren(1).asInstanceOf[Map[String, Object]]("id").toString.toInt
-    val statementRightKindName = operationChildren(1).asInstanceOf[Map[String, Object]]("name").toString
-
-    val statementLeftHandSide = operationChildren(0).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]
-    val statementRightHandSide = operationChildren(1).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]
 
     statementName match {
       case "ExpressionStatement" => {
         println("Operation name: " + operationName)
+
+        val operationChildren = statementChildren(0)("children").asInstanceOf[List[Object]]
+
+        val statementLeftId = operationChildren(0).asInstanceOf[Map[String, Object]]("id").toString.toInt
+        val statementRightId = operationChildren(1).asInstanceOf[Map[String, Object]]("id").toString.toInt
+        val statementRightKindName = operationChildren(1).asInstanceOf[Map[String, Object]]("name").toString
+
+        val statementLeftHandSide = operationChildren(0).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]
+        val statementRightHandSide = operationChildren(1).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]
+
         operationName match {
           case "Assignment" => {
             println("Handling Assignment")
