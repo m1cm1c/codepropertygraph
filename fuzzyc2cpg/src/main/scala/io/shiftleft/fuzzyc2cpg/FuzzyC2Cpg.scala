@@ -301,13 +301,81 @@ class FuzzyC2Cpg() {
       val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
       val statementDataType = statementAttributes("type").toString
 
+      // This switch contains all simple operators found in:
+      // schema/src/main/resources/schemas/operators.json
+      // The operators not supported by Solidity are commented out.
+      // Unary operators are commented out too.
+      // Some assignment operators are not included. These use a plural s in
+      // the angle brackets:
+      // "name":"<operators>.assignmentExponentiation"
+      // "name":"<operators>.assignmentModulo"
+      // "name":"<operators>.assignmentShiftLeft"
+      // "name":"<operators>.assignmentLogicalShiftRight"
+      // "name":"<operators>.assignmentArithmeticShiftRight"
+      // "name":"<operators>.assignmentAnd"
+      // "name":"<operators>.assignmentOr"
+      // "name":"<operators>.assignmentXor"
+      // I have no idea why these have a plural s but the difference scares me,
+      // so I left them out.
       val operatorName = statementAttributes("operator").toString match {
+        case "+" => "<operator>.addition"
+        case "-" => "<operator>.subtraction"
+        case "*" => "<operator>.multiplication"
+        case "/" => "<operator>.division"
+        case "**" => "<operator>.exponentiation"
+        case "%" => "<operator>.modulo"
+        case "<<" => "<operator>.shiftLeft"
+        // case "" => "<operator>.logicalShiftRight"
+        case ">>" => "<operator>.arithmeticShiftRight"
+        case "~" => "<operator>.not"
+        case "&" => "<operator>.and"
+        case "|" => "<operator>.or"
+        case "^" => "<operator>.xor"
+        /*
+        // Assignments are not considered binary operations by Solidity.
+        case "+=" => "<operator>.assignmentPlus"
+        case "-=" => "<operator>.assignmentMinus"
+        case "*=" => "<operator>.assignmentMultiplication"
+        case "/=" => "<operator>.assignmentDivision"
+        case "=" => "<operator>.assignment"
+        */
+        // case "-" => "<operator>.minus"
+        // case "+" => "<operator>.plus"
+        // case "" => "<operator>.preIncrement"
+        // case "" => "<operator>.preDecrement"
+        // case "" => "<operator>.postIncrement"
+        // case "" => "<operator>.postDecrement"
+        // case "!" => "<operator>.logicalNot"
+        case "||" => "<operator>.logicalOr"
+        case "&&" => "<operator>.logicalAnd"
+        case "==" => "<operator>.equals"
+        case "!=" => "<operator>.notEquals"
         case ">" => "<operator>.greaterThan"
         case "<" => "<operator>.lessThan"
-        case ">" => "<operator>.greaterThan"
-        case "==" => "<operator>.equals"
-        case "&&" => "<operator>.logicalAnd"
-        case "||" => "<operator>.logicalOr" // TODO: not, inequality, bit operators, shift, arithmetic, geq, leq
+        case ">=" => "<operator>.greaterEqualsThan"
+        case "<=" => "<operator>.lessEqualsThan"
+        // These either don't exist in Solidity or are not considered
+        // binary operations.
+        /*
+        case "" => "<operator>.instanceOf"
+        case "" => "<operator>.memberAccess"
+        case "" => "<operator>.indirectMemberAccess"
+        case "" => "<operator>.computedMemberAccess"
+        case "" => "<operator>.indirectComputedMemberAccess"
+        case "" => "<operator>.indirection"
+        case "" => "<operator>.delete"
+        case "" => "<operator>.conditional"
+        case "" => "<operator>.cast"
+        case "" => "<operator>.compare"
+        case "" => "<operator>.addressOf"
+        case "" => "<operator>.sizeOf"
+        case "" => "<operator>.fieldAccess"
+        case "" => "<operator>.indirectFieldAccess"
+        case "" => "<operator>.indexAccess"
+        case "" => "<operator>.indirectIndexAccess"
+        case "" => "<operator>.pointerShift"
+        case "" => "<operator>.getElementPtr"
+        */
         case _ => "<operator>.ERROR"
       }
 
