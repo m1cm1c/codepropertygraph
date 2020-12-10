@@ -177,7 +177,7 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + parameterId).setProperty("CODE", parameterType + " " + parameterName)
       graph.node(BASE_ID + parameterId).setProperty("COLUMN_NUMBER", 0)
       graph.node(BASE_ID + parameterId).setProperty("LINE_NUMBER", 0)
-      graph.node(BASE_ID + parameterId).setProperty("TYPE_FULL_NAME", parameterName)
+      graph.node(BASE_ID + parameterId).setProperty("TYPE_FULL_NAME", parameterType)
       graph.node(BASE_ID + parameterId).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
       graph.node(BASE_ID + parameterId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + parameterId).setProperty("NAME", parameterName)
@@ -221,9 +221,9 @@ class FuzzyC2Cpg() {
     graph.node(BASE_ID + blockId).setProperty("ORDER", 3)
     graph.node(BASE_ID + blockId).setProperty("ARGUMENT_INDEX", 3)
     graph.node(BASE_ID + blockId).setProperty("CODE", "")
-    graph.node(BASE_ID + blockId).setProperty("COLUMN_NUMBER", 33)
+    graph.node(BASE_ID + blockId).setProperty("COLUMN_NUMBER", 0)
     graph.node(BASE_ID + blockId).setProperty("TYPE_FULL_NAME", "void")
-    graph.node(BASE_ID + blockId).setProperty("LINE_NUMBER", 5)
+    graph.node(BASE_ID + blockId).setProperty("LINE_NUMBER", 0)
     graph.node(BASE_ID + blockId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
 
     val statementsList = block("children").asInstanceOf[List[Object]]
@@ -417,7 +417,7 @@ class FuzzyC2Cpg() {
     graph.node(BASE_ID + statementLeftId).setProperty("ARGUMENT_INDEX", 1)
     graph.node(BASE_ID + statementLeftId).setProperty("CODE", statementLeftVariableName)
     graph.node(BASE_ID + statementLeftId).setProperty("COLUMN_NUMBER", 0)
-    graph.node(BASE_ID + statementLeftId).setProperty("TYPE_FULL_NAME", "ANY") // TODO: maybe set to operationDataType? Is not the case in the original CPG AST but might be an improvement.
+    graph.node(BASE_ID + statementLeftId).setProperty("TYPE_FULL_NAME", operationDataType)
     graph.node(BASE_ID + statementLeftId).setProperty("LINE_NUMBER", 0)
     graph.node(BASE_ID + statementLeftId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
     graph.node(BASE_ID + statementLeftId).setProperty("NAME", statementLeftVariableName)
