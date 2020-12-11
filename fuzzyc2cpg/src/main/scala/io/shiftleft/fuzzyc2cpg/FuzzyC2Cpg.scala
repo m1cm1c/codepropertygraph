@@ -284,7 +284,8 @@ class FuzzyC2Cpg() {
 
     if(!statementName.equals("ExpressionStatement") && !statementName.equals("Block")
       && !statementName.equals("IfStatement") && !statementName.equals("WhileStatement")
-      && !statementName.equals("ForStatement") && !statementName.equals("BinaryOperation")
+      && !statementName.equals("DoWhileStatement") && !statementName.equals("ForStatement")
+      && !statementName.equals("BinaryOperation")
       && !statementName.equals("VariableDeclarationStatement")) {
       println("panic!!! unknown statement with statement name: " + statementName)
       return Array()
@@ -371,7 +372,7 @@ class FuzzyC2Cpg() {
     val operationAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
 
     if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")
-      || statementName.equals("ForStatement")) {
+      || statementName.equals("DoWhileStatement") || statementName.equals("ForStatement")) {
       graph.addNode(BASE_ID + operationId, "CONTROL_STRUCTURE")
       graph.node(BASE_ID + operationId).setProperty("PARSER_TYPE_NAME", statementName)
       graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
@@ -380,7 +381,8 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + operationId).setProperty("CODE", "")
       graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
 
-      if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")) {
+      if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")
+        || statementName.equals("DoWhileStatement")) {
         val conditionId = registerStatement(graph, statementChildren(0))(0)
         // There never are several action IDs. This is because in Solidity,
         // variable delarations in an if's or loop's body is illegal unless that
