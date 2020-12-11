@@ -194,7 +194,7 @@ class FuzzyC2Cpg() {
       val attributeMap = attributeSpecificMap("attributes").asInstanceOf[Map[String, Object]]
       val returnValueName = attributeMap("name").toString
       val returnValueType = attributeMap("type").toString
-      
+
       graph.addNode(BASE_ID + returnValueId, "METHOD_RETURN")
       graph.node(BASE_ID + returnValueId).setProperty("ORDER", order)
       graph.node(BASE_ID + returnValueId).setProperty("CODE", returnValueType + " " + returnValueName)
@@ -303,7 +303,6 @@ class FuzzyC2Cpg() {
       return Array()
     }
 
-    val operationId = statementId
     if(statementName.equals("Block")) {
       val blockId = registerBlock(graph, statementMap)
       return Array(blockId)
@@ -315,29 +314,29 @@ class FuzzyC2Cpg() {
 
       val operatorName = getBinaryOperatorName(statementAttributes("operator").toString)
 
-      graph.addNode(BASE_ID + operationId, "CALL")
-      graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
-      graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
-      graph.node(BASE_ID + operationId).setProperty("CODE", "")
-      graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
-      graph.node(BASE_ID + operationId).setProperty("METHOD_FULL_NAME", operatorName)
-      graph.node(BASE_ID + operationId).setProperty("TYPE_FULL_NAME", "ANY")
-      graph.node(BASE_ID + operationId).setProperty("LINE_NUMBER", 0)
-      graph.node(BASE_ID + operationId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
-      graph.node(BASE_ID + operationId).setProperty("SIGNATURE", "TODO assignment signature")
-      graph.node(BASE_ID + operationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-      graph.node(BASE_ID + operationId).setProperty("NAME", operatorName)
+      graph.addNode(BASE_ID + statementId, "CALL")
+      graph.node(BASE_ID + statementId).setProperty("ORDER", 1)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", 1)
+      graph.node(BASE_ID + statementId).setProperty("CODE", "")
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", operatorName)
+      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+      graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
+      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID + statementId).setProperty("NAME", operatorName)
 
       val idLeftChild = registerStatement(graph, statementChildren(0))(0)
       val idRightChild = registerStatement(graph, statementChildren(1))(0)
 
-      graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + idLeftChild))
-      graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + idRightChild))
+      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idLeftChild))
+      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idRightChild))
 
-      graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + idLeftChild))
-      graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + idRightChild))
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + idLeftChild))
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + idRightChild))
 
-      return Array(operationId)
+      return Array(statementId)
     }
 
     val operationName = statementChildren(0)("name").toString
@@ -373,25 +372,25 @@ class FuzzyC2Cpg() {
       // We need more nodes than the Solidity AST provides. Therefore, instead of declarationOperationId, 1*BASE_ID + declarationOperationId is passed in.
       // The reason that we need more nodes is that the CPG AST requires you to link to an Identifier Node which in turn links to the Local node. You cannot link
       // to a Local node directly via an argument edge.
-      assignmentHelper(graph, operationId, variableDataType, 1*BASE_ID + declarationOperationId, assignmentOperationId, variableName, rightVariableName, rightKindName, assignmentAttributes)
+      assignmentHelper(graph, statementId, variableDataType, 1*BASE_ID + declarationOperationId, assignmentOperationId, variableName, rightVariableName, rightKindName, assignmentAttributes)
       println("exited assignment helper")
       graph.node(BASE_ID + (1*BASE_ID + declarationOperationId)).addEdge("REF", graph.node(BASE_ID + declarationOperationId))
 
 
-      return Array(declarationOperationId, operationId)
+      return Array(declarationOperationId, statementId)
     }
 
     val operationAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
 
     if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")
       || statementName.equals("DoWhileStatement") || statementName.equals("ForStatement")) {
-      graph.addNode(BASE_ID + operationId, "CONTROL_STRUCTURE")
-      graph.node(BASE_ID + operationId).setProperty("PARSER_TYPE_NAME", statementName)
-      graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
-      graph.node(BASE_ID + operationId).setProperty("LINE_NUMBER", 0)
-      graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
-      graph.node(BASE_ID + operationId).setProperty("CODE", "")
-      graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
+      graph.addNode(BASE_ID + statementId, "CONTROL_STRUCTURE")
+      graph.node(BASE_ID + statementId).setProperty("PARSER_TYPE_NAME", statementName)
+      graph.node(BASE_ID + statementId).setProperty("ORDER", 1)
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", 1)
+      graph.node(BASE_ID + statementId).setProperty("CODE", "")
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
 
       if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")
         || statementName.equals("DoWhileStatement")) {
@@ -401,9 +400,9 @@ class FuzzyC2Cpg() {
         // body is a block.
         val actionId = registerStatement(graph, statementChildren(1))(0)
 
-        graph.node(BASE_ID + operationId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
-        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + conditionId))
-        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + actionId))
+        graph.node(BASE_ID + statementId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
+        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + conditionId))
+        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + actionId))
       } else {
         println("REGISTERING FOR STATEMENT")
         val initialActionIds = registerStatement(graph, statementChildren(0))
@@ -412,14 +411,14 @@ class FuzzyC2Cpg() {
         val actionId = registerStatement(graph, statementChildren(3))(0)
         println("REGISTERED FOR STATEMENT")
         // Weird order bc that's the order that the CPG AST uses.
-        graph.node(BASE_ID + operationId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
+        graph.node(BASE_ID + statementId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
         for(initialActionId <- initialActionIds)
-          graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + initialActionId))
-        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + conditionId))
-        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + incrementId))
-        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + actionId))
+          graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + initialActionId))
+        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + conditionId))
+        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + incrementId))
+        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + actionId))
       }
-      return Array(operationId)
+      return Array(statementId)
     }
 
     val operationDataType = operationAttributes("type").toString
@@ -441,26 +440,26 @@ class FuzzyC2Cpg() {
 
           val operatorName = getUnaryOperatorName(operatorSymbol, isPrefixOperator)
 
-          graph.addNode(BASE_ID + operationId, "CALL")
-          graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
-          graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
-          graph.node(BASE_ID + operationId).setProperty("CODE", code)
-          graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
-          graph.node(BASE_ID + operationId).setProperty("METHOD_FULL_NAME", operatorName)
-          graph.node(BASE_ID + operationId).setProperty("TYPE_FULL_NAME", "ANY")
-          graph.node(BASE_ID + operationId).setProperty("LINE_NUMBER", 0)
-          graph.node(BASE_ID + operationId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
-          graph.node(BASE_ID + operationId).setProperty("SIGNATURE", "TODO assignment signature")
-          graph.node(BASE_ID + operationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-          graph.node(BASE_ID + operationId).setProperty("NAME", operatorName)
+          graph.addNode(BASE_ID + statementId, "CALL")
+          graph.node(BASE_ID + statementId).setProperty("ORDER", 1)
+          graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", 1)
+          graph.node(BASE_ID + statementId).setProperty("CODE", code)
+          graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+          graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", operatorName)
+          graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
+          graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+          graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+          graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
+          graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+          graph.node(BASE_ID + statementId).setProperty("NAME", operatorName)
 
           val idChild = registerStatement(graph, operationChildren(0))(0)
           println("my child is:")
           println(graph.node(BASE_ID + idChild))
-          graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + idChild))
-          graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + idChild))
+          graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idChild))
+          graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + idChild))
 
-          return Array(operationId)
+          return Array(statementId)
         }
 
         val statementLeftId = operationChildren(0).asInstanceOf[Map[String, Object]]("id").toString.toInt
@@ -482,7 +481,7 @@ class FuzzyC2Cpg() {
             val statementLeftVariableName = statementLeftHandSide("value").toString
             val statementRightVariableName = statementRightHandSide("value").toString
 
-            assignmentHelper(graph, operationId, operationDataType, statementLeftId, statementRightId, statementLeftVariableName, statementRightVariableName, statementRightKindName, statementRightHandSide)
+            assignmentHelper(graph, statementId, operationDataType, statementLeftId, statementRightId, statementLeftVariableName, statementRightVariableName, statementRightKindName, statementRightHandSide)
           }
           case "FunctionCall" => {
             println("function calls are not yet implemented")
@@ -495,7 +494,7 @@ class FuzzyC2Cpg() {
       }
     }
 
-    Array(operationId)
+    Array(statementId)
   }
 
   def assignmentHelper(graph: Graph, operationId: Int, operationDataType: String, statementLeftId: Int, statementRightId: Int, statementLeftVariableName: String, statementRightVariableName: String, statementRightKindName: String, statementRightHandSide: Map[String, Object]): Unit = {
