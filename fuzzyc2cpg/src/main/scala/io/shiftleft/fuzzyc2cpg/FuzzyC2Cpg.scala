@@ -382,7 +382,10 @@ class FuzzyC2Cpg() {
 
       if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")) {
         val conditionId = registerStatement(graph, statementChildren(0))(0)
-        val actionId = registerBlock(graph, statementChildren(1)) // TODO: use registerstatement instead
+        // There never are several action IDs. This is because in Solidity,
+        // variable delarations in an if's or loop's body is illegal unless that
+        // body is a block.
+        val actionId = registerStatement(graph, statementChildren(1))(0)
 
         graph.node(BASE_ID + operationId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
         graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + conditionId))
@@ -1071,7 +1074,7 @@ class FuzzyC2Cpg() {
     new CfgCreationPass(cpg, functionKeyPools.last).createAndApply() // MARK
     new StubRemovalPass(cpg).createAndApply()
     new TypeNodePass(/*astCreator.global.usedTypes.keys().asScala.toList*/ usedTypes, cpg, Some(typesKeyPool)).createAndApply()
-    
+
     cpg
   }
 
