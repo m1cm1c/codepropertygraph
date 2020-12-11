@@ -294,6 +294,24 @@ class FuzzyC2Cpg() {
       return registerStatement(graph, statementChildren(0))
     }
 
+    if(statementName.equals("Return")) {
+      val symbol = statementChildren(0).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]("value").toString
+      val code = "return " + symbol
+      graph.addNode(BASE_ID + statementId, "RETURN")
+      graph.node(BASE_ID + statementId).setProperty("ORDER", 1)
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", 1)
+      graph.node(BASE_ID + statementId).setProperty("CODE", code)
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+
+      val idChild = registerStatement(graph, statementChildren(0))(0)
+
+      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idChild))
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + idChild))
+
+      return Array(statementId)
+    }
+
     if(!statementName.equals("ExpressionStatement") && !statementName.equals("Block")
       && !statementName.equals("IfStatement") && !statementName.equals("WhileStatement")
       && !statementName.equals("DoWhileStatement") && !statementName.equals("ForStatement")
@@ -497,6 +515,7 @@ class FuzzyC2Cpg() {
     Array(statementId)
   }
 
+  // TODO: optimize away using even more recursion
   def assignmentHelper(graph: Graph, operationId: Int, operationDataType: String, statementLeftId: Int, statementRightId: Int, statementLeftVariableName: String, statementRightVariableName: String, statementRightKindName: String, statementRightHandSide: Map[String, Object]): Unit = {
     // TODO: store assignment nodes / edges / properties / whatever there is to store
     graph.addNode(BASE_ID + operationId, "CALL")
