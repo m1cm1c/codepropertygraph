@@ -283,7 +283,8 @@ class FuzzyC2Cpg() {
     }
 
     if(!statementName.equals("ExpressionStatement") && !statementName.equals("Block")
-      && !statementName.equals("IfStatement") && !statementName.equals("BinaryOperation")
+      && !statementName.equals("IfStatement") && !statementName.equals("WhileStatement")
+      && !statementName.equals("BinaryOperation")
       && !statementName.equals("VariableDeclarationStatement")) {
       println("panic!!! unknown statement with statement name: " + statementName)
       return Array()
@@ -448,6 +449,25 @@ class FuzzyC2Cpg() {
     val operationAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
     val operationDataType = operationAttributes("type").toString
 
+    if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")) {
+      graph.addNode(BASE_ID + operationId, "CONTROL_STRUCTURE")
+      graph.node(BASE_ID + operationId).setProperty("PARSER_TYPE_NAME", statementName)
+      graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
+      graph.node(BASE_ID + operationId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
+      graph.node(BASE_ID + operationId).setProperty("CODE", "")
+      graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
+
+      val conditionId = registerStatement(graph, statementChildren(0))(0)
+      val actionId = registerBlock(graph, statementChildren(1))
+
+      graph.node(BASE_ID + operationId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
+      graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + conditionId))
+      graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + actionId))
+
+      return Array(operationId)
+    }
+
     statementName match {
       case "ExpressionStatement" => {
         println("Operation name: " + operationName)
@@ -483,22 +503,6 @@ class FuzzyC2Cpg() {
             println("unknown operation")
           }
         }
-      }
-      case "IfStatement" => {
-        graph.addNode(BASE_ID + operationId, "CONTROL_STRUCTURE")
-        graph.node(BASE_ID + operationId).setProperty("PARSER_TYPE_NAME", "IfStatement")
-        graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
-        graph.node(BASE_ID + operationId).setProperty("LINE_NUMBER", 0)
-        graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
-        graph.node(BASE_ID + operationId).setProperty("CODE", "")
-        graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
-
-        val conditionId = registerStatement(graph, statementChildren(0))(0)
-        val actionId = registerBlock(graph, statementChildren(1))
-
-        graph.node(BASE_ID + operationId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
-        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + conditionId))
-        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + actionId))
       }
     }
 
