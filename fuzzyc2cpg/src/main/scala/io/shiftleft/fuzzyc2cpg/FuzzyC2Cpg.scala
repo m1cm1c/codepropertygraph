@@ -157,12 +157,10 @@ class FuzzyC2Cpg() {
     val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
     val functionComponents = getFieldList(wrappedFunction, "children")
     val parameterListComponent = functionComponentsWrapped.children(0)
-    val parameterList2Component = functionComponentsWrapped.children(1) // TODO: could be return values?
+    val returnValuesListComponent = functionComponentsWrapped.children(1)
     val bodyComponent = functionComponents(2)
 
     // Deal with function parameters.
-    println("---------")
-    println(parameterListComponent.values)
     val parameterList = parameterListComponent.values.asInstanceOf[Map[String, List[Object]]]
     var order = 1
     for(attributeSpecificObject <- parameterList("children")) {
@@ -187,16 +185,30 @@ class FuzzyC2Cpg() {
       order += 1
     }
 
-    graph.addNode(2*BASE_ID + functionId, "METHOD_RETURN")
-    graph.node(2*BASE_ID + functionId).setProperty("ORDER", 4)
-    graph.node(2*BASE_ID + functionId).setProperty("CODE", "RET")
-    graph.node(2*BASE_ID + functionId).setProperty("COLUMN_NUMBER", 0)
-    graph.node(2*BASE_ID + functionId).setProperty("LINE_NUMBER", 0)
-    graph.node(2*BASE_ID + functionId).setProperty("TYPE_FULL_NAME", "int") // TODO
-    graph.node(2*BASE_ID + functionId).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
-    graph.node(2*BASE_ID + functionId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    // Deal with function return values.
+    order += 1 // I have no idea why this is needed. But without this, CPG generation fails.
+    val returnValuesList = returnValuesListComponent.values.asInstanceOf[Map[String, List[Object]]]
+    for(attributeSpecificObject <- returnValuesList("children")) {
+      val attributeSpecificMap = attributeSpecificObject.asInstanceOf[Map[String, Object]]
+      val returnValueId = attributeSpecificMap("id").toString.toInt
+      val attributeMap = attributeSpecificMap("attributes").asInstanceOf[Map[String, Object]]
+      val returnValueName = attributeMap("name").toString
+      val returnValueType = attributeMap("type").toString
+      
+      graph.addNode(BASE_ID + returnValueId, "METHOD_RETURN")
+      graph.node(BASE_ID + returnValueId).setProperty("ORDER", order)
+      graph.node(BASE_ID + returnValueId).setProperty("CODE", returnValueType + " " + returnValueName)
+      graph.node(BASE_ID + returnValueId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + returnValueId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + returnValueId).setProperty("TYPE_FULL_NAME", returnValueType)
+      graph.node(BASE_ID + returnValueId).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
+      graph.node(BASE_ID + returnValueId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List()) // Is not part of the original CPG AST for some reason. But including it doesn't seem to break anything, so I included it so it's more similar to other kinds of nodes.
+      graph.node(BASE_ID + returnValueId).setProperty("NAME", returnValueName) // Is not part of the original CPG AST because in C, return values cannot be named.
 
-    graph.node(BASE_ID + functionId).addEdge("AST", graph.node(2*BASE_ID + functionId))
+      graph.node(BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + returnValueId))
+
+      order += 1
+    }
 
     println(functionId)
     println(functionName)
