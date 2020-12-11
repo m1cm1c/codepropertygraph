@@ -284,7 +284,7 @@ class FuzzyC2Cpg() {
 
     if(!statementName.equals("ExpressionStatement") && !statementName.equals("Block")
       && !statementName.equals("IfStatement") && !statementName.equals("WhileStatement")
-      && !statementName.equals("BinaryOperation")
+      && !statementName.equals("ForStatement") && !statementName.equals("BinaryOperation")
       && !statementName.equals("VariableDeclarationStatement")) {
       println("panic!!! unknown statement with statement name: " + statementName)
       return Array()
@@ -292,93 +292,15 @@ class FuzzyC2Cpg() {
 
     val operationId = statementId
     if(statementName.equals("Block")) {
-      val subBlockId = registerBlock(graph, statementMap)
-      println(operationId)
-      graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + subBlockId))
-      return Array(operationId)
+      val blockId = registerBlock(graph, statementMap)
+      return Array(blockId)
     }
 
     if(statementName.equals("BinaryOperation")) {
       val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
       val statementDataType = statementAttributes("type").toString
 
-      // This switch contains all simple operators found in:
-      // schema/src/main/resources/schemas/operators.json
-      // The operators not supported by Solidity are commented out.
-      // Unary operators are commented out too.
-      // Some assignment operators are not included. These use a plural s in
-      // the angle brackets:
-      // "name":"<operators>.assignmentExponentiation"
-      // "name":"<operators>.assignmentModulo"
-      // "name":"<operators>.assignmentShiftLeft"
-      // "name":"<operators>.assignmentLogicalShiftRight"
-      // "name":"<operators>.assignmentArithmeticShiftRight"
-      // "name":"<operators>.assignmentAnd"
-      // "name":"<operators>.assignmentOr"
-      // "name":"<operators>.assignmentXor"
-      // I have no idea why these have a plural s but the difference scares me,
-      // so I left them out.
-      val operatorName = statementAttributes("operator").toString match {
-        case "+" => "<operator>.addition"
-        case "-" => "<operator>.subtraction"
-        case "*" => "<operator>.multiplication"
-        case "/" => "<operator>.division"
-        case "**" => "<operator>.exponentiation"
-        case "%" => "<operator>.modulo"
-        case "<<" => "<operator>.shiftLeft"
-        // case "" => "<operator>.logicalShiftRight"
-        case ">>" => "<operator>.arithmeticShiftRight"
-        case "~" => "<operator>.not"
-        case "&" => "<operator>.and"
-        case "|" => "<operator>.or"
-        case "^" => "<operator>.xor"
-        /*
-        // Assignments are not considered binary operations by Solidity.
-        case "+=" => "<operator>.assignmentPlus"
-        case "-=" => "<operator>.assignmentMinus"
-        case "*=" => "<operator>.assignmentMultiplication"
-        case "/=" => "<operator>.assignmentDivision"
-        case "=" => "<operator>.assignment"
-        */
-        // case "-" => "<operator>.minus"
-        // case "+" => "<operator>.plus"
-        // case "" => "<operator>.preIncrement"
-        // case "" => "<operator>.preDecrement"
-        // case "" => "<operator>.postIncrement"
-        // case "" => "<operator>.postDecrement"
-        // case "!" => "<operator>.logicalNot"
-        case "||" => "<operator>.logicalOr"
-        case "&&" => "<operator>.logicalAnd"
-        case "==" => "<operator>.equals"
-        case "!=" => "<operator>.notEquals"
-        case ">" => "<operator>.greaterThan"
-        case "<" => "<operator>.lessThan"
-        case ">=" => "<operator>.greaterEqualsThan"
-        case "<=" => "<operator>.lessEqualsThan"
-        // These either don't exist in Solidity or are not considered
-        // binary operations.
-        /*
-        case "" => "<operator>.instanceOf"
-        case "" => "<operator>.memberAccess"
-        case "" => "<operator>.indirectMemberAccess"
-        case "" => "<operator>.computedMemberAccess"
-        case "" => "<operator>.indirectComputedMemberAccess"
-        case "" => "<operator>.indirection"
-        case "" => "<operator>.delete"
-        case "" => "<operator>.conditional"
-        case "" => "<operator>.cast"
-        case "" => "<operator>.compare"
-        case "" => "<operator>.addressOf"
-        case "" => "<operator>.sizeOf"
-        case "" => "<operator>.fieldAccess"
-        case "" => "<operator>.indirectFieldAccess"
-        case "" => "<operator>.indexAccess"
-        case "" => "<operator>.indirectIndexAccess"
-        case "" => "<operator>.pointerShift"
-        case "" => "<operator>.getElementPtr"
-        */
-        case _ => "<operator>.ERROR"
-      }
+      val operatorName = getBinaryOperatorName(statementAttributes("operator").toString)
 
       graph.addNode(BASE_ID + operationId, "CALL")
       graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
@@ -447,9 +369,9 @@ class FuzzyC2Cpg() {
     }
 
     val operationAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
-    val operationDataType = operationAttributes("type").toString
 
-    if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")) {
+    if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")
+      || statementName.equals("ForStatement")) {
       graph.addNode(BASE_ID + operationId, "CONTROL_STRUCTURE")
       graph.node(BASE_ID + operationId).setProperty("PARSER_TYPE_NAME", statementName)
       graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
@@ -458,21 +380,71 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + operationId).setProperty("CODE", "")
       graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
 
-      val conditionId = registerStatement(graph, statementChildren(0))(0)
-      val actionId = registerBlock(graph, statementChildren(1))
+      if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")) {
+        val conditionId = registerStatement(graph, statementChildren(0))(0)
+        val actionId = registerBlock(graph, statementChildren(1)) // TODO: use registerstatement instead
 
-      graph.node(BASE_ID + operationId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
-      graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + conditionId))
-      graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + actionId))
-
+        graph.node(BASE_ID + operationId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
+        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + conditionId))
+        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + actionId))
+      } else {
+        println("REGISTERING FOR STATEMENT")
+        val initialActionIds = registerStatement(graph, statementChildren(0))
+        val conditionId = registerStatement(graph, statementChildren(1))(0)
+        val incrementId = registerStatement(graph, statementChildren(2))(0)
+        val actionId = registerStatement(graph, statementChildren(3))(0)
+        println("REGISTERED FOR STATEMENT")
+        // Weird order bc that's the order that the CPG AST uses.
+        graph.node(BASE_ID + operationId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
+        for(initialActionId <- initialActionIds)
+          graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + initialActionId))
+        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + conditionId))
+        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + incrementId))
+        graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + actionId))
+      }
       return Array(operationId)
     }
+
+    val operationDataType = operationAttributes("type").toString
 
     statementName match {
       case "ExpressionStatement" => {
         println("Operation name: " + operationName)
 
         val operationChildren = statementChildren(0)("children").asInstanceOf[List[Object]]
+
+        if(operationName.equals("UnaryOperation")) {
+          val operationAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
+
+          val operatorSymbol = operationAttributes("operator").toString
+          val isPrefixOperator = operationAttributes("prefix").equals(true)
+          val symbol = operationChildren(0).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]("value").toString
+
+          val code = if(isPrefixOperator) operatorSymbol + symbol else symbol + operatorSymbol
+
+          val operatorName = getUnaryOperatorName(operatorSymbol, isPrefixOperator)
+
+          graph.addNode(BASE_ID + operationId, "CALL")
+          graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
+          graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
+          graph.node(BASE_ID + operationId).setProperty("CODE", code)
+          graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
+          graph.node(BASE_ID + operationId).setProperty("METHOD_FULL_NAME", operatorName)
+          graph.node(BASE_ID + operationId).setProperty("TYPE_FULL_NAME", "ANY")
+          graph.node(BASE_ID + operationId).setProperty("LINE_NUMBER", 0)
+          graph.node(BASE_ID + operationId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+          graph.node(BASE_ID + operationId).setProperty("SIGNATURE", "TODO assignment signature")
+          graph.node(BASE_ID + operationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+          graph.node(BASE_ID + operationId).setProperty("NAME", operatorName)
+
+          val idChild = registerStatement(graph, operationChildren(0))(0)
+          println("my child is:")
+          println(graph.node(BASE_ID + idChild))
+          graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + idChild))
+          graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + idChild))
+
+          return Array(operationId)
+        }
 
         val statementLeftId = operationChildren(0).asInstanceOf[Map[String, Object]]("id").toString.toInt
         val statementRightId = operationChildren(1).asInstanceOf[Map[String, Object]]("id").toString.toInt
@@ -564,6 +536,92 @@ class FuzzyC2Cpg() {
     // The AST this repo uses does not seem to care about global variables.
   }
 
+  def getBinaryOperatorName(symbol: String): String = {
+    // This switch contains all simple binary operators found in:
+    // schema/src/main/resources/schemas/operators.json
+    // The operators not supported by Solidity are commented out.
+    // Unary operators are commented out too.
+    // Some assignment operators are not included. These use a plural s in
+    // the angle brackets:
+    // "name":"<operators>.assignmentExponentiation"
+    // "name":"<operators>.assignmentModulo"
+    // "name":"<operators>.assignmentShiftLeft"
+    // "name":"<operators>.assignmentLogicalShiftRight"
+    // "name":"<operators>.assignmentArithmeticShiftRight"
+    // "name":"<operators>.assignmentAnd"
+    // "name":"<operators>.assignmentOr"
+    // "name":"<operators>.assignmentXor"
+    // I have no idea why these have a plural s but the difference scares me,
+    // so I left them out.
+    symbol match {
+      case "+" => "<operator>.addition"
+      case "-" => "<operator>.subtraction"
+      case "*" => "<operator>.multiplication"
+      case "/" => "<operator>.division"
+      case "**" => "<operator>.exponentiation"
+      case "%" => "<operator>.modulo"
+      case "<<" => "<operator>.shiftLeft"
+      // case "" => "<operator>.logicalShiftRight"
+      case ">>" => "<operator>.arithmeticShiftRight"
+      case "~" => "<operator>.not"
+      case "&" => "<operator>.and"
+      case "|" => "<operator>.or"
+      case "^" => "<operator>.xor"
+      /*
+      // Assignments are not considered binary operations by Solidity.
+      case "+=" => "<operator>.assignmentPlus"
+      case "-=" => "<operator>.assignmentMinus"
+      case "*=" => "<operator>.assignmentMultiplication"
+      case "/=" => "<operator>.assignmentDivision"
+      case "=" => "<operator>.assignment"
+      */
+      case "||" => "<operator>.logicalOr"
+      case "&&" => "<operator>.logicalAnd"
+      case "==" => "<operator>.equals"
+      case "!=" => "<operator>.notEquals"
+      case ">" => "<operator>.greaterThan"
+      case "<" => "<operator>.lessThan"
+      case ">=" => "<operator>.greaterEqualsThan"
+      case "<=" => "<operator>.lessEqualsThan"
+      // These either don't exist in Solidity or are not considered
+      // binary operations.
+      /*
+      case "" => "<operator>.instanceOf"
+      case "" => "<operator>.memberAccess"
+      case "" => "<operator>.indirectMemberAccess"
+      case "" => "<operator>.computedMemberAccess"
+      case "" => "<operator>.indirectComputedMemberAccess"
+      case "" => "<operator>.indirection"
+      case "" => "<operator>.delete"
+      case "" => "<operator>.conditional"
+      case "" => "<operator>.cast"
+      case "" => "<operator>.compare"
+      case "" => "<operator>.addressOf"
+      case "" => "<operator>.sizeOf"
+      case "" => "<operator>.fieldAccess"
+      case "" => "<operator>.indirectFieldAccess"
+      case "" => "<operator>.indexAccess"
+      case "" => "<operator>.indirectIndexAccess"
+      case "" => "<operator>.pointerShift"
+      case "" => "<operator>.getElementPtr"
+      */
+      case _ => "<operator>.ERROR"
+    }
+  }
+
+    def getUnaryOperatorName(symbol: String, prefix: Boolean): String = {
+      // This switch contains all unary operators found in:
+      // schema/src/main/resources/schemas/operators.json
+      symbol match {
+        case "-" => "<operator>.minus"
+        case "+" => "<operator>.plus"
+        case "++" => if(prefix) "<operator>.preIncrement" else "<operator>.postIncrement"
+        case "--" => if(prefix) "<operator>.preDecrement" else "<operator>.postDecrement"
+        case "!" => "<operator>.logicalNot"
+        case _ => "<operator>.ERROR"
+      }
+  }
+
   def runAndOutput(sourcePaths: Set[String],
                    sourceFileExtensions: Set[String],
                    optionalOutputPath: Option[String] = None): Cpg = {
@@ -622,7 +680,7 @@ class FuzzyC2Cpg() {
 
         graph.node(1000100).addEdge("AST", graph.node(1000101))
 
-        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast6.json").getLines.mkString
+        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast8.json").getLines.mkString
         val originalAst = parse(fileContents)
 
         /*childrenOpt match {
@@ -1007,11 +1065,13 @@ class FuzzyC2Cpg() {
     }
     printNodes(graph)
     printEdges(graph)
+
     val usedTypes = collectUsedTypes(graph)
 
     new CfgCreationPass(cpg, functionKeyPools.last).createAndApply() // MARK
     new StubRemovalPass(cpg).createAndApply()
     new TypeNodePass(/*astCreator.global.usedTypes.keys().asScala.toList*/ usedTypes, cpg, Some(typesKeyPool)).createAndApply()
+    
     cpg
   }
 
