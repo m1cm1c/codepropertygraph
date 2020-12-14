@@ -306,8 +306,19 @@ class FuzzyC2Cpg() {
     }
 
     if(statementName.equals("Return")) {
-      val symbol = statementChildren(0).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]("value").toString
+      /*
+      // Getting some code here isn't easy. We need to try a few options.
+      val variableAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
+      val symbol = if(variableAttributes.keys.exists(_ == "value")) {
+        variableAttributes("value").toString
+      } else {
+        val functionCallAttributes = statementChildren(0)("children").asInstanceOf[List[Map[String, Object]]](0)("attributes").asInstanceOf[Map[String, Object]]
+        functionCallAttributes("value") + "(...)"
+      }
       val code = "return " + symbol
+      println(code)
+       */
+      val code = "return (...)"
       graph.addNode(BASE_ID + statementId, "RETURN")
       graph.node(BASE_ID + statementId).setProperty("ORDER", 1)
       graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
