@@ -185,7 +185,8 @@ class FuzzyC2Cpg() {
     }
 
     // Deal with function return values.
-    order += 1 // I have no idea why this is needed. But without this, CPG generation fails.
+    if(order < 4) // I have no idea why this is needed. But without this, CPG generation fails.
+      order = 4
     val returnValuesList = returnValuesListComponent.values.asInstanceOf[Map[String, List[Object]]]
     for(attributeSpecificObject <- returnValuesList("children")) {
       val attributeSpecificMap = attributeSpecificObject.asInstanceOf[Map[String, Object]]
