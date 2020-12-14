@@ -123,7 +123,7 @@ class FuzzyC2Cpg() {
     getField(jsonObject, attributeName).asInstanceOf[List[Object]]
   }
 
-  def registerFunction(graph: Graph, wrappedFunction: JsonAST.JValue): Unit = {
+  def registerFunctionHeader(graph: Graph, wrappedFunction: JsonAST.JValue): Unit = {
     val functionId = getFieldInt(wrappedFunction, "id")
     val functionAttributesWrapped = getFieldWrapped(wrappedFunction, "attributes")
 
@@ -158,7 +158,6 @@ class FuzzyC2Cpg() {
     val functionComponents = getFieldList(wrappedFunction, "children")
     val parameterListComponent = functionComponentsWrapped.children(0)
     val returnValuesListComponent = functionComponentsWrapped.children(1)
-    val bodyComponent = functionComponents(2)
 
     // Deal with function parameters.
     val parameterList = parameterListComponent.values.asInstanceOf[Map[String, List[Object]]]
@@ -209,17 +208,29 @@ class FuzzyC2Cpg() {
 
       order += 1
     }
+  }
 
-    println(functionId)
-    println(functionName)
+  def registerFunctionBody(graph: Graph, wrappedFunction: JsonAST.JValue): Unit = {
+    val functionId = getFieldInt(wrappedFunction, "id")
+    val functionAttributesWrapped = getFieldWrapped(wrappedFunction, "attributes")
+
+    val functionName = getFieldString(functionAttributesWrapped, "name")
+    val isImplemented = getFieldBoolean(functionAttributesWrapped, "implemented")
+
+    // Ignore unimplemented functions.
+    if(!isImplemented) {
+      return
+    }
+
+    require(getFieldString(functionAttributesWrapped, "kind").equals("function"))
+
+    val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
+    val functionComponents = getFieldList(wrappedFunction, "children")
+    val bodyComponent = functionComponents(2)
 
     // Deal with function body.
     val blockId = registerBlock(graph, bodyComponent.asInstanceOf[Map[String, Object]])
     graph.node(BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + blockId))
-
-    //val childrenElement = getField(wrappedFunction, "children")
-    //println(childrenElement)
-
   }
 
   def registerBlock(graph: Graph, block: Map[String, Object]): Int = {
@@ -733,6 +744,8 @@ class FuzzyC2Cpg() {
         println(contractLevel)
         println(contractLevel.length)
 
+        // We need to loop through twice because otherwise we wouldn't be able
+        // to access function definitions in function bodies.
         contractLevel.foreach(wrappedContractLevelElement => {
           // This is equivalent to this JS code:
           // let name = wrappedContractLevelElement.name
@@ -741,8 +754,17 @@ class FuzzyC2Cpg() {
           }).get._2.values.toString
 
           name match {
-            case "FunctionDefinition" => registerFunction(graph, wrappedContractLevelElement)
             case "VariableDeclaration" => registerVariable(graph, wrappedContractLevelElement)
+            case "FunctionDefinition" => registerFunctionHeader(graph, wrappedContractLevelElement)
+          }
+        })
+        contractLevel.foreach(wrappedContractLevelElement => {
+          val name = wrappedContractLevelElement.findField(jfield => {
+            jfield._1.equals("name")
+          }).get._2.values.toString
+
+          name match {
+            case "FunctionDefinition" => registerFunctionBody(graph, wrappedContractLevelElement)
           }
         })
         println("processing completed")
