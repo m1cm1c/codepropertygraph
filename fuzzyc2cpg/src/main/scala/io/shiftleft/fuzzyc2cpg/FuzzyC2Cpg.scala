@@ -339,7 +339,7 @@ class FuzzyC2Cpg() {
     if(!statementName.equals("ExpressionStatement") && !statementName.equals("Block")
       && !statementName.equals("IfStatement") && !statementName.equals("WhileStatement")
       && !statementName.equals("DoWhileStatement") && !statementName.equals("ForStatement")
-      && !statementName.equals("BinaryOperation")
+      && !statementName.equals("BinaryOperation") && !statementName.equals("FunctionCall")
       && !statementName.equals("VariableDeclarationStatement")) {
       println("panic!!! unknown statement with statement name: " + statementName)
       return Array()
@@ -355,10 +355,8 @@ class FuzzyC2Cpg() {
       val statementDataType = statementAttributes("type").toString
 
       val operatorName = getBinaryOperatorName(statementAttributes("operator").toString)
-println("<<12")
-      println(graph.node(BASE_ID + statementId))
+
       graph.addNode(BASE_ID + statementId, "CALL")
-      println("<<13")
       graph.node(BASE_ID + statementId).setProperty("ORDER", 1)
       graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", 1)
       graph.node(BASE_ID + statementId).setProperty("CODE", "")
@@ -370,11 +368,10 @@ println("<<12")
       graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
       graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + statementId).setProperty("NAME", operatorName)
-      println("<<1")
+
       val idLeftChild = registerStatement(graph, statementChildren(0))(0)
-      println("<<1")
       val idRightChild = registerStatement(graph, statementChildren(1))(0)
-      println("<<1")
+
       graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idLeftChild))
       graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idRightChild))
 
@@ -462,6 +459,39 @@ println("<<12")
       return Array(statementId)
     }
 
+    if(statementName.equals("FunctionCall")) {
+      val functionComponent = statementChildren(0)
+      val argumentComponents = statementChildren.slice(1, statementChildren.length)
+
+      val functionAttributes = functionComponent("attributes").asInstanceOf[Map[String, Object]]
+      val functionName = functionAttributes("value").toString
+      val functionReferencedId = functionAttributes("referencedDeclaration").toString.toInt
+
+      graph.addNode(BASE_ID + statementId, "CALL")
+      graph.node(BASE_ID + statementId).setProperty("ORDER", 1)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", 1)
+      graph.node(BASE_ID + statementId).setProperty("CODE", functionName + "(...)")
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", functionName) // This could alternatively be set to the value of property "FULL_NAME" of node BASE_ID + functionReferencedId.
+      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+      graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
+      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID + statementId).setProperty("NAME", functionName)
+
+      println(functionComponent)
+      println(argumentComponents)
+
+      for(argumentComponent <- argumentComponents) {
+        val argumentId = registerStatement(graph, argumentComponent)(0)
+        graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + argumentId))
+        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + argumentId))
+      }
+
+      return Array(statementId)
+    }
+
     val operationDataType = operationAttributes("type").toString
 
     statementName match {
@@ -523,10 +553,6 @@ println("<<12")
             val statementRightVariableName = statementRightHandSide("value").toString
 
             assignmentHelper(graph, statementId, operationDataType, statementLeftId, statementLeftVariableName, statementRightHandSide)
-          }
-          case "FunctionCall" => {
-            println("function calls are not yet implemented")
-            // TODO
           }
           case _ => {
             println("unknown operation")
