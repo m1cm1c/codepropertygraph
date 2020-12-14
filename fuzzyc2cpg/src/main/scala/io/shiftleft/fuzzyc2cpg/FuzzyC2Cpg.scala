@@ -142,12 +142,12 @@ class FuzzyC2Cpg() {
     graph.node(BASE_ID + functionId).setProperty("LINE_NUMBER", 0)
     graph.node(BASE_ID + functionId).setProperty("COLUMN_NUMBER_END", 0)
     graph.node(BASE_ID + functionId).setProperty("IS_EXTERNAL", false)
-    graph.node(BASE_ID + functionId).setProperty("SIGNATURE", "int main (int,char * [ ])")
+    graph.node(BASE_ID + functionId).setProperty("SIGNATURE", functionName)
     graph.node(BASE_ID + functionId).setProperty("NAME", functionName)
     graph.node(BASE_ID + functionId).setProperty("AST_PARENT_TYPE", "")
     graph.node(BASE_ID + functionId).setProperty("AST_PARENT_FULL_NAME", "")
     graph.node(BASE_ID + functionId).setProperty("ORDER", -1)
-    graph.node(BASE_ID + functionId).setProperty("CODE", "main (int argc,char *argv[])")
+    graph.node(BASE_ID + functionId).setProperty("CODE", functionName)
     graph.node(BASE_ID + functionId).setProperty("FULL_NAME", functionName)
     graph.node(BASE_ID + functionId).setProperty("LINE_NUMBER_END", 0)
     graph.node(BASE_ID + functionId).setProperty("FILENAME", "")
@@ -305,6 +305,7 @@ class FuzzyC2Cpg() {
       return registerStatement(graph, statementChildren(0))
     }
 
+
     if(statementName.equals("Return")) {
       /*
       // Getting some code here isn't easy. We need to try a few options.
@@ -353,8 +354,10 @@ class FuzzyC2Cpg() {
       val statementDataType = statementAttributes("type").toString
 
       val operatorName = getBinaryOperatorName(statementAttributes("operator").toString)
-
+println("<<12")
+      println(graph.node(BASE_ID + statementId))
       graph.addNode(BASE_ID + statementId, "CALL")
+      println("<<13")
       graph.node(BASE_ID + statementId).setProperty("ORDER", 1)
       graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", 1)
       graph.node(BASE_ID + statementId).setProperty("CODE", "")
@@ -366,10 +369,11 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
       graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + statementId).setProperty("NAME", operatorName)
-
+      println("<<1")
       val idLeftChild = registerStatement(graph, statementChildren(0))(0)
+      println("<<1")
       val idRightChild = registerStatement(graph, statementChildren(1))(0)
-
+      println("<<1")
       graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idLeftChild))
       graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idRightChild))
 
@@ -387,15 +391,12 @@ class FuzzyC2Cpg() {
       val variableName = variableAttributes("name").toString
 
       val declarationOperationId = statementChildren(0)("id").toString.toInt
-      val assignmentOperationId = statementChildren(1)("id").toString.toInt
-
       println("Handling VariableDeclarationStatement")
       require(operationName.equals("VariableDeclaration"))
       println(variableAttributes)
       println(variableDataType)
       println(variableName)
       println(declarationOperationId)
-      println(assignmentOperationId)
 
       graph.addNode(BASE_ID + declarationOperationId, "LOCAL")
       graph.node(BASE_ID + declarationOperationId).setProperty("TYPE_FULL_NAME", variableDataType)
@@ -405,14 +406,13 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + declarationOperationId).setProperty("NAME", variableName)
 
       val assignmentAttributes = statementChildren(1)("attributes").asInstanceOf[Map[String, Object]]
-      val rightVariableName = assignmentAttributes("value").toString
-      val rightKindName = statementChildren(1)("name").toString
+      val statementRight = statementChildren(1)
 
       println("entering assignment helper")
       // We need more nodes than the Solidity AST provides. Therefore, instead of declarationOperationId, 1*BASE_ID + declarationOperationId is passed in.
       // The reason that we need more nodes is that the CPG AST requires you to link to an Identifier Node which in turn links to the Local node. You cannot link
       // to a Local node directly via an argument edge.
-      assignmentHelper(graph, statementId, variableDataType, 1*BASE_ID + declarationOperationId, assignmentOperationId, variableName, rightVariableName, rightKindName, assignmentAttributes)
+      assignmentHelper(graph, statementId, variableDataType, declarationOperationId + 1*BASE_ID, variableName, statementRight)
       println("exited assignment helper")
       graph.node(BASE_ID + (1*BASE_ID + declarationOperationId)).addEdge("REF", graph.node(BASE_ID + declarationOperationId))
 
@@ -521,7 +521,7 @@ class FuzzyC2Cpg() {
             val statementLeftVariableName = statementLeftHandSide("value").toString
             val statementRightVariableName = statementRightHandSide("value").toString
 
-            assignmentHelper(graph, statementId, operationDataType, statementLeftId, statementRightId, statementLeftVariableName, statementRightVariableName, statementRightKindName, statementRightHandSide)
+            assignmentHelper(graph, statementId, operationDataType, statementLeftId, statementLeftVariableName, statementRightHandSide)
           }
           case "FunctionCall" => {
             println("function calls are not yet implemented")
@@ -538,12 +538,11 @@ class FuzzyC2Cpg() {
   }
 
   // TODO: optimize away using even more recursion
-  def assignmentHelper(graph: Graph, operationId: Int, operationDataType: String, statementLeftId: Int, statementRightId: Int, statementLeftVariableName: String, statementRightVariableName: String, statementRightKindName: String, statementRightHandSide: Map[String, Object]): Unit = {
-    // TODO: store assignment nodes / edges / properties / whatever there is to store
+  def assignmentHelper(graph: Graph, operationId: Int, operationDataType: String, statementLeftId: Int, statementLeftVariableName: String, statementRight: Object): Unit = {
     graph.addNode(BASE_ID + operationId, "CALL")
     graph.node(BASE_ID + operationId).setProperty("ORDER", 1)
     graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", 1)
-    graph.node(BASE_ID + operationId).setProperty("CODE", statementLeftVariableName + " = " + statementRightVariableName)
+    graph.node(BASE_ID + operationId).setProperty("CODE", statementLeftVariableName + " = (...)")
     graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
     graph.node(BASE_ID + operationId).setProperty("METHOD_FULL_NAME", "<operator>.assignment")
     graph.node(BASE_ID + operationId).setProperty("TYPE_FULL_NAME", "ANY")
@@ -552,7 +551,8 @@ class FuzzyC2Cpg() {
     graph.node(BASE_ID + operationId).setProperty("SIGNATURE", "TODO assignment signature")
     graph.node(BASE_ID + operationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
     graph.node(BASE_ID + operationId).setProperty("NAME", "<operator>.assignment")
-
+println(">>>>>")
+    println(BASE_ID + statementLeftId)
     graph.addNode(BASE_ID + statementLeftId, "IDENTIFIER")
     graph.node(BASE_ID + statementLeftId).setProperty("ORDER", 1)
     graph.node(BASE_ID + statementLeftId).setProperty("ARGUMENT_INDEX", 1)
@@ -563,16 +563,9 @@ class FuzzyC2Cpg() {
     graph.node(BASE_ID + statementLeftId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
     graph.node(BASE_ID + statementLeftId).setProperty("NAME", statementLeftVariableName)
 
-    graph.addNode(BASE_ID + statementRightId, (if (statementRightKindName.equals("Identifier")) "IDENTIFIER" else "LITERAL"))
-    graph.node(BASE_ID + statementRightId).setProperty("ORDER", 2)
-    graph.node(BASE_ID + statementRightId).setProperty("ARGUMENT_INDEX", 2)
-    graph.node(BASE_ID + statementRightId).setProperty("CODE", statementRightVariableName)
-    graph.node(BASE_ID + statementRightId).setProperty("COLUMN_NUMBER", 0)
-    graph.node(BASE_ID + statementRightId).setProperty("TYPE_FULL_NAME", operationDataType) // Set to operationDataType instead fo "type" from "attributes" so it also works for literals. The latter would be something like "int_const 7" for literals.
-    graph.node(BASE_ID + statementRightId).setProperty("LINE_NUMBER", 0)
-    graph.node(BASE_ID + statementRightId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-    if (statementRightKindName.equals("Identifier"))
-      graph.node(BASE_ID + statementRightId).setProperty("NAME", statementRightVariableName)
+    println("getting statementrightid")
+    val statementRightId = registerStatement(graph, statementRight)(0)
+    println("got statementrightid")
 
     graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + statementLeftId))
     graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
@@ -582,11 +575,6 @@ class FuzzyC2Cpg() {
 
     // TODO: comment back in after including global variables
     // graph.node(BASE_ID + statementLeftId).addEdge("REF", graph.node(BASE_ID + statementLeftReferencedId))
-
-    if (statementRightKindName.equals("Identifier")) {
-      val statementRightReferencedId = statementRightHandSide("referencedDeclaration").toString.toInt
-      graph.node(BASE_ID + statementRightId).addEdge("REF", graph.node(BASE_ID + statementRightReferencedId))
-    }
   }
 
   def registerVariable(graph: Graph, wrappedFunction: JsonAST.JValue): Unit = {
@@ -737,7 +725,7 @@ class FuzzyC2Cpg() {
 
         graph.node(1000100).addEdge("AST", graph.node(1000101))
 
-        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast8.json").getLines.mkString
+        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast9.json").getLines.mkString
         val originalAst = parse(fileContents)
 
         /*childrenOpt match {
