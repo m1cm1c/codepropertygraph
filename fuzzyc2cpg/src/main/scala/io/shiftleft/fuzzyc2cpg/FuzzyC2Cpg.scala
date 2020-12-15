@@ -123,6 +123,48 @@ class FuzzyC2Cpg() {
     getField(jsonObject, attributeName).asInstanceOf[List[Object]]
   }
 
+  def registerStruct(graph: Graph, wrappedStruct: JsonAST.JValue): Unit = {
+    val structId = getFieldInt(wrappedStruct, "id")
+    val structAttributesWrapped = getFieldWrapped(wrappedStruct, "attributes")
+
+    val structName = getFieldString(structAttributesWrapped, "name")
+
+    graph.addNode(BASE_ID + structId, "TYPE_DECL")
+    graph.node(BASE_ID + structId).setProperty("AST_PARENT_TYPE", "") // I'm leaving these two empty because (contrary to the documentation)
+    graph.node(BASE_ID + structId).setProperty("AST_PARENT_FULL_NAME", "") // they always seem to be left empty.
+    graph.node(BASE_ID + structId).setProperty("ORDER", -1)
+    graph.node(BASE_ID + structId).setProperty("INHERITS_FROM_TYPE_FULL_NAME", List())
+    graph.node(BASE_ID + structId).setProperty("FULL_NAME", structName) // Could be set to attribute "canonicalName" but in the CPG AST, name and full name always seem to be the same, so ...
+    graph.node(BASE_ID + structId).setProperty("IS_EXTERNAL", false)
+    graph.node(BASE_ID + structId).setProperty("FILENAME", "")
+    graph.node(BASE_ID + structId).setProperty("NAME", structName)
+
+    graph.node(1000101).addEdge("AST", graph.node(BASE_ID + structId))
+
+    val memberComponentsWrapped = getFieldWrapped(wrappedStruct, "children")
+    val memberComponents = getFieldList(wrappedStruct, "children").asInstanceOf[List[Map[String, Object]]]
+
+    // Deal with struct members.
+    for(memberComponent <- memberComponents) {
+      val attributes = memberComponent("attributes").asInstanceOf[Map[String, Object]]
+      val memberId = memberComponent("id").toString.toInt
+      val nodeName = memberComponent("name").toString
+      require(nodeName.equals("VariableDeclaration"))
+
+      val memberName = attributes("name").toString
+      val memberType = attributes("type").toString
+
+      graph.addNode(BASE_ID + memberId, "MEMBER")
+      graph.node(BASE_ID + memberId).setProperty("TYPE_FULL_NAME", memberType)
+      graph.node(BASE_ID + memberId).setProperty("ORDER", -1)
+      graph.node(BASE_ID + memberId).setProperty("CODE", memberName)
+      graph.node(BASE_ID + memberId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID + memberId).setProperty("NAME", memberName)
+
+      graph.node(BASE_ID + structId).addEdge("AST", graph.node(BASE_ID + memberId))
+    }
+  }
+
   def registerFunctionHeader(graph: Graph, wrappedFunction: JsonAST.JValue): Unit = {
     val functionId = getFieldInt(wrappedFunction, "id")
     val functionAttributesWrapped = getFieldWrapped(wrappedFunction, "attributes")
@@ -776,7 +818,7 @@ class FuzzyC2Cpg() {
 
         graph.node(1000100).addEdge("AST", graph.node(1000101))
 
-        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast9.json").getLines.mkString
+        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast10.json").getLines.mkString
         val originalAst = parse(fileContents)
 
         /*childrenOpt match {
@@ -806,6 +848,8 @@ class FuzzyC2Cpg() {
           name match {
             case "VariableDeclaration" => registerVariable(graph, wrappedContractLevelElement)
             case "FunctionDefinition" => registerFunctionHeader(graph, wrappedContractLevelElement)
+            case "StructDefinition" => registerStruct(graph, wrappedContractLevelElement)
+            case _ => {}
           }
         })
         contractLevel.foreach(wrappedContractLevelElement => {
@@ -815,6 +859,7 @@ class FuzzyC2Cpg() {
 
           name match {
             case "FunctionDefinition" => registerFunctionBody(graph, wrappedContractLevelElement)
+            case _ => {}
           }
         })
         println("processing completed")
