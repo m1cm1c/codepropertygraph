@@ -359,6 +359,10 @@ class FuzzyC2Cpg() {
       return registerStatement(graph, statementChildren(0), order)
     }
 
+    if(statementName.equals("MemberAccess")) {
+      val memberAccessId = memberAccessHelper(graph, statement.asInstanceOf[Map[String, Object]])
+      return Array(memberAccessId)
+    }
 
     if(statementName.equals("Return")) {
       /*
@@ -627,6 +631,7 @@ class FuzzyC2Cpg() {
               val statementLeftVariableName = statementLeftAttributes("value").toString
               assignmentHelper(graph, statementId, order, operationDataType, statementLeftId, statementLeftVariableName, statementLeftReferencedId, statementRightId)
             } else if (statementLeftKind.equals("MemberAccess")) {
+              val memberAccess = statementLeft
               val memberName = statementLeftAttributes("member_name").toString
               val struct = statementLeft("children").asInstanceOf[List[Map[String, Object]]](0)
               val structAttributes = struct("attributes").asInstanceOf[Map[String, Object]]
@@ -647,47 +652,12 @@ class FuzzyC2Cpg() {
               graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
               graph.node(BASE_ID + statementId).setProperty("NAME", "<operator>.assignment")
 
-              graph.addNode(BASE_ID + statementLeftId, "CALL")
-              graph.node(BASE_ID + statementLeftId).setProperty("ORDER", 1)
-              graph.node(BASE_ID + statementLeftId).setProperty("ARGUMENT_INDEX", 1)
-              graph.node(BASE_ID + statementLeftId).setProperty("CODE", statementLeftVariableName)
-              graph.node(BASE_ID + statementLeftId).setProperty("COLUMN_NUMBER", 0)
-              graph.node(BASE_ID + statementLeftId).setProperty("METHOD_FULL_NAME", "<operator>.fieldAccess")
-              graph.node(BASE_ID + statementLeftId).setProperty("TYPE_FULL_NAME", "ANY")
-              graph.node(BASE_ID + statementLeftId).setProperty("LINE_NUMBER", 0)
-              graph.node(BASE_ID + statementLeftId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
-              graph.node(BASE_ID + statementLeftId).setProperty("SIGNATURE", "TODO assignment signature")
-              graph.node(BASE_ID + statementLeftId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-              graph.node(BASE_ID + statementLeftId).setProperty("NAME", "<operator>.fieldAccess")
-
-              graph.addNode(BASE_ID + structId, "IDENTIFIER")
-              graph.node(BASE_ID + structId).setProperty("ORDER", 1)
-              graph.node(BASE_ID + structId).setProperty("ARGUMENT_INDEX", 1)
-              graph.node(BASE_ID + structId).setProperty("CODE", structName)
-              graph.node(BASE_ID + structId).setProperty("COLUMN_NUMBER", 0)
-              graph.node(BASE_ID + structId).setProperty("TYPE_FULL_NAME", "ANY")
-              graph.node(BASE_ID + structId).setProperty("LINE_NUMBER", 0)
-              graph.node(BASE_ID + structId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-              graph.node(BASE_ID + structId).setProperty("NAME", structName)
-              // TODO: could make use of structAttributes("referencedDeclaration").toString.toInt for a ref edge
-
-              graph.addNode(2*BASE_ID + structId, "FIELD_IDENTIFIER")
-              graph.node(2*BASE_ID + structId).setProperty("ORDER", 2)
-              graph.node(2*BASE_ID + structId).setProperty("LINE_NUMBER", 0)
-              graph.node(2*BASE_ID + structId).setProperty("ARGUMENT_INDEX", 2)
-              graph.node(2*BASE_ID + structId).setProperty("CODE", memberName)
-              graph.node(2*BASE_ID + structId).setProperty("COLUMN_NUMBER", 0)
-              graph.node(2*BASE_ID + structId).setProperty("CANONICAL_NAME", memberName)
+              memberAccessHelper(graph, memberAccess)
 
               graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
               graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + statementRightId))
               graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + statementRightId))
-
-              graph.node(BASE_ID + statementLeftId).addEdge("ARGUMENT", graph.node(BASE_ID + structId))
-              graph.node(BASE_ID + statementLeftId).addEdge("AST", graph.node(BASE_ID + structId))
-              graph.node(BASE_ID + statementLeftId).addEdge("ARGUMENT", graph.node(2*BASE_ID + structId))
-              graph.node(BASE_ID + statementLeftId).addEdge("AST", graph.node(2*BASE_ID + structId))
-            } else {
+              } else {
               println("Invalid left kind!")
               require(false)
             }
@@ -735,6 +705,56 @@ class FuzzyC2Cpg() {
 
     if(graph.node(BASE_ID + statementLeftReferencedId) != null)
       graph.node(BASE_ID + statementLeftId).addEdge("REF", graph.node(BASE_ID + statementLeftReferencedId))
+  }
+
+  def memberAccessHelper(graph: Graph, memberAccess: Map[String, Object]): Int = {
+    val memberAccessAttributes = memberAccess("attributes").asInstanceOf[Map[String, Object]]
+    val memberAccessId = memberAccess("id").toString.toInt
+    val memberName = memberAccessAttributes("member_name").toString
+    val struct = memberAccess("children").asInstanceOf[List[Map[String, Object]]](0)
+    val structAttributes = struct("attributes").asInstanceOf[Map[String, Object]]
+    val structName = structAttributes("value").toString
+    val structId = struct("id").toString.toInt
+    val completeAccessCode = structName + "." + memberName
+
+    graph.addNode(BASE_ID + memberAccessId, "CALL")
+    graph.node(BASE_ID + memberAccessId).setProperty("ORDER", 1)
+    graph.node(BASE_ID + memberAccessId).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(BASE_ID + memberAccessId).setProperty("CODE", completeAccessCode)
+    graph.node(BASE_ID + memberAccessId).setProperty("COLUMN_NUMBER", 0)
+    graph.node(BASE_ID + memberAccessId).setProperty("METHOD_FULL_NAME", "<operator>.fieldAccess")
+    graph.node(BASE_ID + memberAccessId).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(BASE_ID + memberAccessId).setProperty("LINE_NUMBER", 0)
+    graph.node(BASE_ID + memberAccessId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+    graph.node(BASE_ID + memberAccessId).setProperty("SIGNATURE", "TODO assignment signature")
+    graph.node(BASE_ID + memberAccessId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(BASE_ID + memberAccessId).setProperty("NAME", "<operator>.fieldAccess")
+
+    graph.addNode(BASE_ID + structId, "IDENTIFIER")
+    graph.node(BASE_ID + structId).setProperty("ORDER", 1)
+    graph.node(BASE_ID + structId).setProperty("ARGUMENT_INDEX", 1)
+    graph.node(BASE_ID + structId).setProperty("CODE", structName)
+    graph.node(BASE_ID + structId).setProperty("COLUMN_NUMBER", 0)
+    graph.node(BASE_ID + structId).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(BASE_ID + structId).setProperty("LINE_NUMBER", 0)
+    graph.node(BASE_ID + structId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(BASE_ID + structId).setProperty("NAME", structName)
+    // TODO: could make use of structAttributes("referencedDeclaration").toString.toInt for a ref edge
+
+    graph.addNode(2*BASE_ID + structId, "FIELD_IDENTIFIER")
+    graph.node(2*BASE_ID + structId).setProperty("ORDER", 2)
+    graph.node(2*BASE_ID + structId).setProperty("LINE_NUMBER", 0)
+    graph.node(2*BASE_ID + structId).setProperty("ARGUMENT_INDEX", 2)
+    graph.node(2*BASE_ID + structId).setProperty("CODE", memberName)
+    graph.node(2*BASE_ID + structId).setProperty("COLUMN_NUMBER", 0)
+    graph.node(2*BASE_ID + structId).setProperty("CANONICAL_NAME", memberName)
+
+    graph.node(BASE_ID + memberAccessId).addEdge("ARGUMENT", graph.node(BASE_ID + structId))
+    graph.node(BASE_ID + memberAccessId).addEdge("AST", graph.node(BASE_ID + structId))
+    graph.node(BASE_ID + memberAccessId).addEdge("ARGUMENT", graph.node(2*BASE_ID + structId))
+    graph.node(BASE_ID + memberAccessId).addEdge("AST", graph.node(2*BASE_ID + structId))
+
+    memberAccessId
   }
 
   def registerVariable(graph: Graph, wrappedFunction: JsonAST.JValue): Unit = {
