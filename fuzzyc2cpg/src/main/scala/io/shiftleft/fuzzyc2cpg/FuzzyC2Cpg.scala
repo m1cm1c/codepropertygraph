@@ -156,8 +156,9 @@ class FuzzyC2Cpg() {
 
     val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
     val functionComponents = getFieldList(wrappedFunction, "children")
-    val parameterListComponent = functionComponentsWrapped.children(0)
-    val returnValuesListComponent = functionComponentsWrapped.children(1)
+    val includesDocumentation = functionComponentsWrapped.children.length == 4
+    val parameterListComponent = functionComponentsWrapped.children(if(!includesDocumentation) 0 else 1)
+    val returnValuesListComponent = functionComponentsWrapped.children(if(!includesDocumentation) 1 else 2)
 
     // Deal with function parameters.
     val parameterList = parameterListComponent.values.asInstanceOf[Map[String, List[Object]]]
@@ -226,7 +227,8 @@ class FuzzyC2Cpg() {
 
     val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
     val functionComponents = getFieldList(wrappedFunction, "children")
-    val bodyComponent = functionComponents(2)
+    val includesDocumentation = functionComponentsWrapped.children.length == 4
+    val bodyComponent = functionComponents(if(!includesDocumentation) 2 else 3)
 
     // At this point (after execution of registerFunctionHeader()), only the
     // input parameters and the return value are outgoing AST edges. So the
