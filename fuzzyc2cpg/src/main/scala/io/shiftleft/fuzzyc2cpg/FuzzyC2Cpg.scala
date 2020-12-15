@@ -450,6 +450,23 @@ class FuzzyC2Cpg() {
         graph.node(BASE_ID + statementId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
         graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + conditionId))
         graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + actionId))
+
+        // Handle "else" part if present.
+        if(statementChildren.length == 3) {
+          val alternativeActionId = registerStatement(graph, statementChildren(2), 1)(0)
+
+          // We need a node that is not present in the Solidity AST so we add the BASE_ID twice.
+          graph.addNode(2*BASE_ID + statementId, "CONTROL_STRUCTURE")
+          graph.node(2*BASE_ID + statementId).setProperty("PARSER_TYPE_NAME", "ElseStatement")
+          graph.node(2*BASE_ID + statementId).setProperty("ORDER", order+1) // This does not need to be propagated outwards. There just are duplicate order numbers if there is a subsequent statement. I have no idea why.
+          graph.node(2*BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+          graph.node(2*BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order+1)
+          graph.node(2*BASE_ID + statementId).setProperty("CODE", "else")
+          graph.node(2*BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+
+          graph.node(BASE_ID + statementId).addEdge("AST", graph.node(2*BASE_ID + statementId))
+          graph.node(2*BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + alternativeActionId))
+        }
       } else {
         println("REGISTERING FOR STATEMENT")
         val initialActionIds = registerStatement(graph, statementChildren(0), 1)
@@ -558,7 +575,7 @@ class FuzzyC2Cpg() {
             require(operationAttributes("operator").toString.equals("="))
             require(operationChildren.length == 2)
 
-            println(statementLeftId + " <- " + statementRightId)
+            println(statementId + ": " + statementLeftId + " <- " + statementRightId)
 
             val statementLeftReferencedId = statementLeftAttributes("referencedDeclaration").toString.toInt
             val statementLeftVariableName = statementLeftAttributes("value").toString
