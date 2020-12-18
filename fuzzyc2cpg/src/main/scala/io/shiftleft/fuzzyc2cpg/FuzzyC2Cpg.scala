@@ -441,42 +441,80 @@ class FuzzyC2Cpg() {
       return Array(statementId)
     }
 
-    val operationName = statementChildren(0)("name").toString
-
-    // TODO: split and return that the order needs to be incremented additionally.
+     // TODO: split and return that the order needs to be incremented additionally.
     if(statementName.equals("VariableDeclarationStatement")) {
-      val variableAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
-      val variableDataType = variableAttributes("type").toString
-      val variableName = variableAttributes("name").toString
+      var returnIds = List[Int]()
 
-      val declarationOperationId = statementChildren(0)("id").toString.toInt
-      println("Handling VariableDeclarationStatement")
-      require(operationName.equals("VariableDeclaration"))
-      println(variableAttributes)
-      println(variableDataType)
-      println(variableName)
-      println(declarationOperationId)
+      // There are 3 cases depending on the number of children:
+      // 1 child:    A VariableDeclaration.
+      // 2 children: The first child is a VariableDeclaration.
+      //             The second child is what that variable is assigned.
+      // 3 children: The first n-1 children are VariableDeclarations.
+      //             The last child's children are what the variables are assigned.
+      require(statementChildren.length > 0)
+      if(statementChildren.length == 1) {
+        registerVariableDeclaration(statementChildren(0))
+      } else if(statementChildren.length == 2) {
+        val (variableAttributes, assignmentLeftId, localId) = registerVariableDeclaration(statementChildren(0))
+        registerVariableAssignment(variableAttributes, assignmentLeftId, localId, statementChildren(1))
+      } else if(statementChildren.length >= 3) {
+        val variableDeclarationOperations = statementChildren.slice(0, statementChildren.length-1)
+        val statementsRight = statementChildren(statementChildren.length-1)("children").asInstanceOf[List[Map[String, Object]]]
+        require(variableDeclarationOperations.length == statementsRight.length)
 
-      graph.addNode(BASE_ID + declarationOperationId, "LOCAL")
-      graph.node(BASE_ID + declarationOperationId).setProperty("TYPE_FULL_NAME", variableDataType)
-      graph.node(BASE_ID + declarationOperationId).setProperty("ORDER", order)
-      graph.node(BASE_ID + declarationOperationId).setProperty("CODE", variableName)
-      graph.node(BASE_ID + declarationOperationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-      graph.node(BASE_ID + declarationOperationId).setProperty("NAME", variableName)
-      order += 1
+        for(i <- 0 until statementsRight.length) {
+          val (variableAttributes, assignmentLeftId, localId) = registerVariableDeclaration(variableDeclarationOperations(i))
+          registerVariableAssignment(variableAttributes, assignmentLeftId, localId, statementsRight(i))
+        }
+      } else {
+        require(false)
+      }
 
-      val assignmentAttributes = statementChildren(1)("attributes").asInstanceOf[Map[String, Object]]
-      val statementRight = statementChildren(1)
-      val statementRightId = registerStatement(graph, statementRight, 2)(0)
+      def registerVariableDeclaration(operation: Map[String, Object]): (Map[String, Object], Int, Int) = {
+        val variableAttributes = operation("attributes").asInstanceOf[Map[String, Object]]
+        val variableDataType = variableAttributes("type").toString
+        val variableName = variableAttributes("name").toString
 
-      // We need more nodes than the Solidity AST provides. Therefore, instead of declarationOperationId, 1*BASE_ID + declarationOperationId is passed in.
-      // The reason that we need more nodes is that the CPG AST requires you to link to an Identifier Node which in turn links to the Local node. You cannot link
-      // to a Local node directly via an argument edge.
-      assignmentHelper(graph, statementId, order, variableDataType, declarationOperationId + 1*BASE_ID, variableName, declarationOperationId, statementRightId)
+        val declarationOperationId = operation("id").toString.toInt
+        println("Handling VariableDeclarationStatement")
+        require(operation("name").toString.equals("VariableDeclaration"))
+        println(variableAttributes)
+        println(variableDataType)
+        println(variableName)
+        println(declarationOperationId)
 
-      return Array(declarationOperationId, statementId)
+        graph.addNode(BASE_ID + declarationOperationId, "LOCAL")
+        graph.node(BASE_ID + declarationOperationId).setProperty("TYPE_FULL_NAME", variableDataType)
+        graph.node(BASE_ID + declarationOperationId).setProperty("ORDER", order)
+        graph.node(BASE_ID + declarationOperationId).setProperty("CODE", variableName)
+        graph.node(BASE_ID + declarationOperationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+        graph.node(BASE_ID + declarationOperationId).setProperty("NAME", variableName)
+        order += 1
+        returnIds = returnIds.appended(declarationOperationId)
+
+        (variableAttributes, declarationOperationId + 1 * BASE_ID, declarationOperationId)
+      }
+
+      def registerVariableAssignment(variableAttributes: Map[String, Object], assignmentLeftId: Int, localId: Int, statementRight: Map[String, Object]) {
+        val variableDataType = variableAttributes("type").toString
+        val variableName = variableAttributes("name").toString
+
+        val statementRightAttributes = statementRight("attributes").asInstanceOf[Map[String, Object]]
+        val statementRightId = registerStatement(graph, statementRight, 2)(0)
+
+        // We need more nodes than the Solidity AST provides. Therefore, instead of declarationOperationId, 1*BASE_ID + declarationOperationId is passed in.
+        // The reason that we need more nodes is that the CPG AST requires you to link to an Identifier Node which in turn links to the Local node. You cannot link
+        // to a Local node directly via an argument edge.
+        // Update: Need even more IDs. => 4*BASE_ID + statementRightId
+        assignmentHelper(graph, 4*BASE_ID + statementRightId, order, variableDataType, assignmentLeftId, variableName, localId, statementRightId)
+        order += 1
+        returnIds = returnIds.appended(4*BASE_ID + statementRightId)
+      }
+
+      return returnIds.toArray
     }
 
+    val operationName = statementChildren(0)("name").toString
     val operationAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
 
     if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")
@@ -975,7 +1013,7 @@ class FuzzyC2Cpg() {
 
         graph.node(1000100).addEdge("AST", graph.node(1000101))
 
-        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast13.json").getLines.mkString
+        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast15.json").getLines.mkString
         val originalAst = parse(fileContents)
 
         /*childrenOpt match {
