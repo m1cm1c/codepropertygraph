@@ -312,14 +312,17 @@ class FuzzyC2Cpg() {
       for(statementId <- statementIds) {
         graph.node(BASE_ID + blockId).addEdge("AST", graph.node(BASE_ID + statementId))
       }
-      statementOrder += 1
+      statementOrder += statementIds.length
     }
     println(statementsList.length)
 
     blockId
   }
 
-  def registerStatement(graph: Graph, statement: Object, order: Int): Array[Int] = {
+  def registerStatement(graph: Graph, statement: Object, _order: Int): Array[Int] = {
+    // Avoiding stupid Scala rule about parameters being read-only.
+    var order = _order
+
     val statementMap = statement.asInstanceOf[Map[String, Object]]
     println(statementMap)
     val statementName = statementMap("name").toString
@@ -460,6 +463,7 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + declarationOperationId).setProperty("CODE", variableName)
       graph.node(BASE_ID + declarationOperationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + declarationOperationId).setProperty("NAME", variableName)
+      order += 1
 
       val assignmentAttributes = statementChildren(1)("attributes").asInstanceOf[Map[String, Object]]
       val statementRight = statementChildren(1)
@@ -637,6 +641,7 @@ class FuzzyC2Cpg() {
               graph.node(3 * BASE_ID + statementRightId).setProperty("CODE", variableName)
               graph.node(3 * BASE_ID + statementRightId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
               graph.node(3 * BASE_ID + statementRightId).setProperty("NAME", variableName)
+              order += 1
 
               // These statements are faked with referenced IDs shifted by 2*BASE_ID such that when
               // BASE_ID is added later on to form the node IDs, the same offset as used above
@@ -692,6 +697,7 @@ class FuzzyC2Cpg() {
               val statementLeftVariableName = statementLeftAttributes("value").toString
               println("entering assignment helper")
               assignmentHelper(graph, statementIdI, order, operationDataType, statementLeftId, statementLeftVariableName, statementLeftReferencedId, statementRightId)
+              order += 1
               println("exited assignment helper")
             } else if (statementLeftKind.equals("MemberAccess")) {
               val memberAccess = statementLeft
@@ -714,6 +720,7 @@ class FuzzyC2Cpg() {
               graph.node(BASE_ID + statementIdI).setProperty("SIGNATURE", "TODO assignment signature")
               graph.node(BASE_ID + statementIdI).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
               graph.node(BASE_ID + statementIdI).setProperty("NAME", "<operator>.assignment")
+              order += 1
 
               memberAccessHelper(graph, memberAccess)
 
