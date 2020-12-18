@@ -496,7 +496,6 @@ class FuzzyC2Cpg() {
       }
 
       def registerVariableAssignment(variableAttributes: Map[String, Object], assignmentLeftId: Int, localId: Int, statementRight: Map[String, Object]) {
-        val variableDataType = variableAttributes("type").toString
         val variableName = variableAttributes("name").toString
 
         val statementRightAttributes = statementRight("attributes").asInstanceOf[Map[String, Object]]
@@ -506,7 +505,7 @@ class FuzzyC2Cpg() {
         // The reason that we need more nodes is that the CPG AST requires you to link to an Identifier Node which in turn links to the Local node. You cannot link
         // to a Local node directly via an argument edge.
         // Update: Need even more IDs. => 4*BASE_ID + statementRightId
-        assignmentHelper(graph, 4*BASE_ID + statementRightId, order, variableDataType, assignmentLeftId, variableName, localId, statementRightId)
+        assignmentHelper(graph, 4*BASE_ID + statementRightId, order, assignmentLeftId, variableName, localId, statementRightId)
         order += 1
         returnIds = returnIds.appended(4*BASE_ID + statementRightId)
       }
@@ -606,8 +605,6 @@ class FuzzyC2Cpg() {
 
       return Array(statementId)
     }
-
-    val operationDataType = operationAttributes("type").toString
 
     statementName match {
       case "ExpressionStatement" => {
@@ -734,7 +731,7 @@ class FuzzyC2Cpg() {
             if (statementLeftKind.equals("Identifier")) {
               val statementLeftVariableName = statementLeftAttributes("value").toString
               println("entering assignment helper")
-              assignmentHelper(graph, statementIdI, order, operationDataType, statementLeftId, statementLeftVariableName, statementLeftReferencedId, statementRightId)
+              assignmentHelper(graph, statementIdI, order, statementLeftId, statementLeftVariableName, statementLeftReferencedId, statementRightId)
               order += 1
               println("exited assignment helper")
             } else if (statementLeftKind.equals("MemberAccess")) {
@@ -781,7 +778,7 @@ class FuzzyC2Cpg() {
   }
 
   // TODO: optimize away using even more recursion
-  def assignmentHelper(graph: Graph, operationId: Int, order: Int, operationDataType: String, statementLeftId: Int, statementLeftVariableName: String, statementLeftReferencedId: Int, statementRightId: Int): Unit = {
+  def assignmentHelper(graph: Graph, operationId: Int, order: Int, statementLeftId: Int, statementLeftVariableName: String, statementLeftReferencedId: Int, statementRightId: Int): Unit = {
     graph.addNode(BASE_ID + operationId, "CALL")
     graph.node(BASE_ID + operationId).setProperty("ORDER", order)
     graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", order)
@@ -795,12 +792,15 @@ class FuzzyC2Cpg() {
     graph.node(BASE_ID + operationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
     graph.node(BASE_ID + operationId).setProperty("NAME", "<operator>.assignment")
 
+    val referencedVariableNode = graph.node(BASE_ID + statementLeftReferencedId)
+    val referencedVariableDataType = if(referencedVariableNode == null) "ERROR" else referencedVariableNode.property("TYPE_FULL_NAME")
+
     graph.addNode(BASE_ID + statementLeftId, "IDENTIFIER")
     graph.node(BASE_ID + statementLeftId).setProperty("ORDER", 1)
     graph.node(BASE_ID + statementLeftId).setProperty("ARGUMENT_INDEX", 1)
     graph.node(BASE_ID + statementLeftId).setProperty("CODE", statementLeftVariableName)
     graph.node(BASE_ID + statementLeftId).setProperty("COLUMN_NUMBER", 0)
-    graph.node(BASE_ID + statementLeftId).setProperty("TYPE_FULL_NAME", operationDataType)
+    graph.node(BASE_ID + statementLeftId).setProperty("TYPE_FULL_NAME", referencedVariableDataType)
     graph.node(BASE_ID + statementLeftId).setProperty("LINE_NUMBER", 0)
     graph.node(BASE_ID + statementLeftId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
     graph.node(BASE_ID + statementLeftId).setProperty("NAME", statementLeftVariableName)
@@ -811,8 +811,8 @@ class FuzzyC2Cpg() {
     graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + statementRightId))
     graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + statementRightId))
 
-    if(graph.node(BASE_ID + statementLeftReferencedId) != null)
-      graph.node(BASE_ID + statementLeftId).addEdge("REF", graph.node(BASE_ID + statementLeftReferencedId))
+    if(referencedVariableNode != null)
+      graph.node(BASE_ID + statementLeftId).addEdge("REF", referencedVariableNode)
   }
 
   def memberAccessHelper(graph: Graph, memberAccess: Map[String, Object]): Int = {
