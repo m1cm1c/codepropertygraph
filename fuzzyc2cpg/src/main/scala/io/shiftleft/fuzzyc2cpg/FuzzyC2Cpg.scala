@@ -399,8 +399,8 @@ class FuzzyC2Cpg() {
     if(!statementName.equals("ExpressionStatement") && !statementName.equals("Block")
       && !statementName.equals("IfStatement") && !statementName.equals("WhileStatement")
       && !statementName.equals("DoWhileStatement") && !statementName.equals("ForStatement")
-      && !statementName.equals("BinaryOperation") && !statementName.equals("FunctionCall")
-      && !statementName.equals("VariableDeclarationStatement")
+      && !statementName.equals("BinaryOperation") && !statementName.equals("UnaryOperation")
+      && !statementName.equals("FunctionCall") && !statementName.equals("VariableDeclarationStatement")
       && !statementName.equals("IndexAccess")) {
       println("panic!!! unknown statement with statement name: " + statementName)
       return Array()
@@ -441,6 +441,40 @@ class FuzzyC2Cpg() {
 
       graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + idLeftChild))
       graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + idRightChild))
+
+      return Array(statementId)
+    }
+
+    if(statementName.equals("UnaryOperation")) {
+      val statementChildren = statementMap("children").asInstanceOf[List[Object]]
+      val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
+
+      val operatorSymbol = statementAttributes("operator").toString
+      val isPrefixOperator = statementAttributes("prefix").equals(true)
+      val symbol = statementChildren(0).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]("value").toString
+
+      val code = if (isPrefixOperator) operatorSymbol + symbol else symbol + operatorSymbol
+
+      val operatorName = getUnaryOperatorName(operatorSymbol, isPrefixOperator)
+
+      graph.addNode(BASE_ID + statementId, "CALL")
+      graph.node(BASE_ID + statementId).setProperty("ORDER", order)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
+      graph.node(BASE_ID + statementId).setProperty("CODE", code)
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", operatorName)
+      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+      graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
+      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID + statementId).setProperty("NAME", operatorName)
+
+      val idChild = registerStatement(graph, statementChildren(0), 1)(0)
+      println("my child is:")
+      println(graph.node(BASE_ID + idChild))
+      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idChild))
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + idChild))
 
       return Array(statementId)
     }
@@ -663,40 +697,11 @@ class FuzzyC2Cpg() {
           return registerStatement(graph, operation, order)
         }
 
-        val operationChildren = operation("children").asInstanceOf[List[Object]]
-
         if(operationName.equals("UnaryOperation")) {
-          val operationAttributes = operation("attributes").asInstanceOf[Map[String, Object]]
-
-          val operatorSymbol = operationAttributes("operator").toString
-          val isPrefixOperator = operationAttributes("prefix").equals(true)
-          val symbol = operationChildren(0).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]("value").toString
-
-          val code = if (isPrefixOperator) operatorSymbol + symbol else symbol + operatorSymbol
-
-          val operatorName = getUnaryOperatorName(operatorSymbol, isPrefixOperator)
-
-          graph.addNode(BASE_ID + statementId, "CALL")
-          graph.node(BASE_ID + statementId).setProperty("ORDER", order)
-          graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
-          graph.node(BASE_ID + statementId).setProperty("CODE", code)
-          graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
-          graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", operatorName)
-          graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
-          graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
-          graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
-          graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
-          graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-          graph.node(BASE_ID + statementId).setProperty("NAME", operatorName)
-
-          val idChild = registerStatement(graph, operationChildren(0), 1)(0)
-          println("my child is:")
-          println(graph.node(BASE_ID + idChild))
-          graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idChild))
-          graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + idChild))
-
-          return Array(statementId)
+          return registerStatement(graph, operation, order)
         }
+
+        val operationChildren = operation("children").asInstanceOf[List[Object]]
 
         if (operationName.equals("Assignment")) {
           println("Handling Assignment")
