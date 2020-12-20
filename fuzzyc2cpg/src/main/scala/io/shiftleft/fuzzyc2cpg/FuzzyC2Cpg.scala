@@ -508,8 +508,9 @@ class FuzzyC2Cpg() {
       return returnIds.toArray
     }
 
-    val operationName = statementChildren(0)("name").toString
-    val operationAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
+    val operation = statementChildren(0)
+    val operationName = operation("name").toString
+    val operationAttributes = operation("attributes").asInstanceOf[Map[String, Object]]
 
     if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")
       || statementName.equals("DoWhileStatement") || statementName.equals("ForStatement")) {
@@ -523,7 +524,7 @@ class FuzzyC2Cpg() {
 
       if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")
         || statementName.equals("DoWhileStatement")) {
-        val conditionId = registerStatement(graph, statementChildren(0), 1)(0)
+        val conditionId = registerStatement(graph, operation, 1)(0)
         // There never are several action IDs. This is because in Solidity,
         // variable delarations in an if's or loop's body is illegal unless that
         // body is a block.
@@ -550,7 +551,7 @@ class FuzzyC2Cpg() {
           graph.node(2*BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + alternativeActionId))
         }
       } else {
-        val initialActionIds = registerStatement(graph, statementChildren(0), 1)
+        val initialActionIds = registerStatement(graph, operation, 1)
         val conditionId = registerStatement(graph, statementChildren(1), 2)(0)
         val incrementId = registerStatement(graph, statementChildren(2), 3)(0)
         val actionId = registerStatement(graph, statementChildren(3), 4)(0)
@@ -622,7 +623,7 @@ class FuzzyC2Cpg() {
 
       graph.addNode(BASE_ID + statementId, "CALL")
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
-      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", 1)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
       graph.node(BASE_ID + statementId).setProperty("CODE", functionName + "(...)")
       graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
       graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", functionName) // This could alternatively be set to the value of property "FULL_NAME" of node BASE_ID + functionReferencedId.
@@ -651,10 +652,14 @@ class FuzzyC2Cpg() {
       case "ExpressionStatement" => {
         println("Operation name: " + operationName)
 
-        val operationChildren = statementChildren(0)("children").asInstanceOf[List[Object]]
+        if(operationName.equals("FunctionCall")) {
+          return registerStatement(graph, operation, order)
+        }
 
-        if (operationName.equals("UnaryOperation")) {
-          val operationAttributes = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]
+        val operationChildren = operation("children").asInstanceOf[List[Object]]
+
+        if(operationName.equals("UnaryOperation")) {
+          val operationAttributes = operation("attributes").asInstanceOf[Map[String, Object]]
 
           val operatorSymbol = operationAttributes("operator").toString
           val isPrefixOperator = operationAttributes("prefix").equals(true)
@@ -1112,7 +1117,7 @@ class FuzzyC2Cpg() {
 
         graph.node(1000100).addEdge("AST", graph.node(1000101))
 
-        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast17.json").getLines.mkString
+        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast18.json").getLines.mkString
         val originalAst = parse(fileContents)
 
         /*childrenOpt match {
