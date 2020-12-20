@@ -818,6 +818,7 @@ class FuzzyC2Cpg() {
 
               graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
               graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementRightId))
+              graph.node(BASE_ID + statementIdI).addEdge("AST", graph.node(BASE_ID + statementLeftId)) // This edge seems to be added somewhere else. But idk where, so I'm adding it another time.
               graph.node(BASE_ID + statementIdI).addEdge("AST", graph.node(BASE_ID + statementRightId))
             } else if(statementLeftKind.equals("IndexAccess")) {
               val statementLeftId_ = registerStatement(graph, statementLeft, 1)(0)
