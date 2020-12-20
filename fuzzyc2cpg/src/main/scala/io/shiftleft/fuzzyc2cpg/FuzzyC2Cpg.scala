@@ -400,7 +400,8 @@ class FuzzyC2Cpg() {
       && !statementName.equals("IfStatement") && !statementName.equals("WhileStatement")
       && !statementName.equals("DoWhileStatement") && !statementName.equals("ForStatement")
       && !statementName.equals("BinaryOperation") && !statementName.equals("FunctionCall")
-      && !statementName.equals("VariableDeclarationStatement")) {
+      && !statementName.equals("VariableDeclarationStatement")
+      && !statementName.equals("IndexAccess")) {
       println("panic!!! unknown statement with statement name: " + statementName)
       return Array()
     }
@@ -565,13 +566,59 @@ class FuzzyC2Cpg() {
       return Array(statementId)
     }
 
+    if(statementName.equals("IndexAccess")) {
+      val arrayName = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]("value").toString
+      val indexAccessed = statementChildren(1)("attributes").asInstanceOf[Map[String, Object]]("value").toString
+
+      val code = arrayName + "[" + indexAccessed + "]"
+
+      graph.addNode(BASE_ID + statementId, "CALL")
+      graph.node(BASE_ID + statementId).setProperty("ORDER", order)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
+      graph.node(BASE_ID + statementId).setProperty("CODE", code)
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", "<operator>.assignment")
+      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+      graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
+      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID + statementId).setProperty("NAME", "<operator>.assignment")
+      order += 1
+
+      val leftId = registerStatement(graph, statementChildren(0), 1)(0)
+      val rightId = registerStatement(graph, statementChildren(1), 2)(0)
+
+      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + leftId))
+      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + rightId))
+
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + leftId))
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + rightId))
+
+      return Array(statementId)
+    }
+
     if(statementName.equals("FunctionCall")) {
       val functionComponent = statementChildren(0)
       val argumentComponents = statementChildren.slice(1, statementChildren.length)
 
-      val functionAttributes = functionComponent("attributes").asInstanceOf[Map[String, Object]]
-      val functionName = functionAttributes("value").toString
-      val functionReferencedId = functionAttributes("referencedDeclaration").toString.toInt
+      val functionAttributes = {
+        if(!functionComponent.keys.exists(_.equals("name")) || !functionComponent("name").equals("NewExpression")) // Regular function call.
+          functionComponent("attributes").asInstanceOf[Map[String, Object]]
+        else // "new" expression (object creation).
+          statementMap("attributes").asInstanceOf[Map[String, Object]]
+      }
+
+      val functionName = {
+        if(functionAttributes.keys.exists(_.equals("value"))) // Regular function call.
+          functionAttributes("value").toString
+        else { // "new" expression (object creation).
+          val typeName = functionAttributes("type").toString
+          "new " + typeName
+        }
+      }
+
+      // val functionReferencedId = functionAttributes("referencedDeclaration").toString.toInt
 
       graph.addNode(BASE_ID + statementId, "CALL")
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
@@ -716,14 +763,13 @@ class FuzzyC2Cpg() {
             val statementRightId = registerStatement(graph, statementRight, 2)(0)
 
             val statementLeftAttributes = statementLeft("attributes").asInstanceOf[Map[String, Object]]
-
-            val statementLeftReferencedId = statementLeftAttributes("referencedDeclaration").toString.toInt
             val statementLeftKind = statementLeft("name").toString
 
             println(statementIdI + ": " + statementLeftId + " <- " + statementRightId)
 
             if (statementLeftKind.equals("Identifier")) {
               val statementLeftVariableName = statementLeftAttributes("value").toString
+              val statementLeftReferencedId = statementLeftAttributes("referencedDeclaration").toString.toInt
               println("entering assignment helper")
               assignmentHelper(graph, statementIdI, order, statementLeftId, statementLeftVariableName, statementLeftReferencedId, statementRightId)
               order += 1
@@ -755,6 +801,32 @@ class FuzzyC2Cpg() {
 
               graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
               graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementRightId))
+              graph.node(BASE_ID + statementIdI).addEdge("AST", graph.node(BASE_ID + statementRightId))
+            } else if(statementLeftKind.equals("IndexAccess")) {
+              val statementLeftId_ = registerStatement(graph, statementLeft, 1)(0)
+              require(statementLeftId_ == statementLeftId)
+
+              val codeLeft = graph.node(BASE_ID + statementLeftId).property("CODE")
+              val codeRight = graph.node(BASE_ID + statementRightId).property("CODE")
+              val code = codeLeft + " = " + codeRight
+
+              graph.addNode(BASE_ID + statementIdI, "CALL")
+              graph.node(BASE_ID + statementIdI).setProperty("ORDER", order)
+              graph.node(BASE_ID + statementIdI).setProperty("ARGUMENT_INDEX", order)
+              graph.node(BASE_ID + statementIdI).setProperty("CODE", code)
+              graph.node(BASE_ID + statementIdI).setProperty("COLUMN_NUMBER", 0)
+              graph.node(BASE_ID + statementIdI).setProperty("METHOD_FULL_NAME", "<operator>.assignment")
+              graph.node(BASE_ID + statementIdI).setProperty("TYPE_FULL_NAME", "ANY")
+              graph.node(BASE_ID + statementIdI).setProperty("LINE_NUMBER", 0)
+              graph.node(BASE_ID + statementIdI).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+              graph.node(BASE_ID + statementIdI).setProperty("SIGNATURE", "TODO assignment signature")
+              graph.node(BASE_ID + statementIdI).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+              graph.node(BASE_ID + statementIdI).setProperty("NAME", "<operator>.assignment")
+              order += 1
+
+              graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
+              graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementRightId))
+              graph.node(BASE_ID + statementIdI).addEdge("AST", graph.node(BASE_ID + statementLeftId))
               graph.node(BASE_ID + statementIdI).addEdge("AST", graph.node(BASE_ID + statementRightId))
             } else {
               println("Invalid left kind!")
@@ -1040,7 +1112,7 @@ class FuzzyC2Cpg() {
 
         graph.node(1000100).addEdge("AST", graph.node(1000101))
 
-        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast16.json").getLines.mkString
+        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast17.json").getLines.mkString
         val originalAst = parse(fileContents)
 
         /*childrenOpt match {
