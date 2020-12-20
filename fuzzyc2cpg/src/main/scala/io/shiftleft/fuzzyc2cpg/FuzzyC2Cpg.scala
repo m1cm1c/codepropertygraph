@@ -441,7 +441,6 @@ class FuzzyC2Cpg() {
       return Array(statementId)
     }
 
-     // TODO: split and return that the order needs to be incremented additionally.
     if(statementName.equals("VariableDeclarationStatement")) {
       var returnIds = List[Int]()
 
@@ -476,12 +475,7 @@ class FuzzyC2Cpg() {
         val variableName = variableAttributes("name").toString
 
         val declarationOperationId = operation("id").toString.toInt
-        println("Handling VariableDeclarationStatement")
         require(operation("name").toString.equals("VariableDeclaration"))
-        println(variableAttributes)
-        println(variableDataType)
-        println(variableName)
-        println(declarationOperationId)
 
         graph.addNode(BASE_ID + declarationOperationId, "LOCAL")
         graph.node(BASE_ID + declarationOperationId).setProperty("TYPE_FULL_NAME", variableDataType)
@@ -865,8 +859,41 @@ class FuzzyC2Cpg() {
     memberAccessId
   }
 
-  def registerVariable(graph: Graph, wrappedFunction: JsonAST.JValue): Unit = {
-    // The AST this repo uses does not seem to care about global variables.
+  def registerVariable(graph: Graph, wrappedVariableDeclaration: JsonAST.JValue): Unit = {
+    // The CPG AST does not seem to care about global variables.
+    // I implemented them as local variables as a makeshift solution.
+    // In the Solidity AST, local and global variables are different.
+    // Local variables are denoted within VariableDeclarationStatements, whereas
+    // global variables are not. Both of them use VariableDeclaration nodes. But
+    // for local variables, if there is an assignment to the newly defined
+    // variable, the thing that the variable is assigned is a sibling of the
+    // VariableDeclaration node, whereas for global variables it is the child with
+    // index 1 of the VariableDeclaration node. Tuple variable declarations and tuple
+    // variable definitions cannot occur outside of a function.
+    var order = 1
+    val declarationOperationId = getFieldInt(wrappedVariableDeclaration, "id")
+    val children = getFieldList(wrappedVariableDeclaration, "children")
+    require(children.length == 1 || children.length == 2)
+    val variableAttributes = getField(wrappedVariableDeclaration, "attributes").asInstanceOf[Map[String, Object]]
+    val variableDataType = variableAttributes("type").toString
+    val variableName = variableAttributes("name").toString
+
+    graph.addNode(BASE_ID + declarationOperationId, "LOCAL")
+    graph.node(BASE_ID + declarationOperationId).setProperty("TYPE_FULL_NAME", variableDataType)
+    graph.node(BASE_ID + declarationOperationId).setProperty("ORDER", order)
+    graph.node(BASE_ID + declarationOperationId).setProperty("CODE", variableName)
+    graph.node(BASE_ID + declarationOperationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+    graph.node(BASE_ID + declarationOperationId).setProperty("NAME", variableName)
+    order += 1
+
+    graph.node(1000101).addEdge("AST", graph.node(BASE_ID + declarationOperationId))
+
+    if(children.length == 2) {
+      val statementRightId = registerStatement(graph, children(1), 2)(0)
+      assignmentHelper(graph, 4 * BASE_ID + statementRightId, order, declarationOperationId + 1 * BASE_ID, variableName, declarationOperationId, statementRightId)
+
+      graph.node(1000101).addEdge("AST", graph.node(BASE_ID + 4 * BASE_ID + statementRightId))
+    }
   }
 
   def getBinaryOperatorName(symbol: String): String = {
@@ -1013,7 +1040,7 @@ class FuzzyC2Cpg() {
 
         graph.node(1000100).addEdge("AST", graph.node(1000101))
 
-        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast15.json").getLines.mkString
+        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast16.json").getLines.mkString
         val originalAst = parse(fileContents)
 
         /*childrenOpt match {
