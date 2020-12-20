@@ -870,7 +870,7 @@ class FuzzyC2Cpg() {
     // VariableDeclaration node, whereas for global variables it is the child with
     // index 1 of the VariableDeclaration node. Tuple variable declarations and tuple
     // variable definitions cannot occur outside of a function.
-    var order = 1
+    var order = -1
     val declarationOperationId = getFieldInt(wrappedVariableDeclaration, "id")
     val children = getFieldList(wrappedVariableDeclaration, "children")
     require(children.length == 1 || children.length == 2)
