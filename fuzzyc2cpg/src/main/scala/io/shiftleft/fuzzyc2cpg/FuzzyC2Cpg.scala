@@ -415,12 +415,18 @@ class FuzzyC2Cpg() {
       val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
       val statementDataType = statementAttributes("type").toString
 
-      val operatorName = getBinaryOperatorName(statementAttributes("operator").toString)
+      val idLeftChild = registerStatement(graph, statementChildren(0), 1)(0)
+      val idRightChild = registerStatement(graph, statementChildren(1), 2)(0)
 
+      val codeLeft = graph.node(BASE_ID + idLeftChild).property("CODE")
+      val codeRight = graph.node(BASE_ID + idRightChild).property("CODE")
+      val code = "(" + codeLeft + ") + (" + codeRight + ")"
+
+      val operatorName = getBinaryOperatorName(statementAttributes("operator").toString)
       graph.addNode(BASE_ID + statementId, "CALL")
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
-      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", 1)
-      graph.node(BASE_ID + statementId).setProperty("CODE", "")
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
+      graph.node(BASE_ID + statementId).setProperty("CODE", code)
       graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
       graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", operatorName)
       graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
@@ -429,9 +435,6 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
       graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + statementId).setProperty("NAME", operatorName)
-
-      val idLeftChild = registerStatement(graph, statementChildren(0), 1)(0)
-      val idRightChild = registerStatement(graph, statementChildren(1), 2)(0)
 
       graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idLeftChild))
       graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idRightChild))
@@ -653,6 +656,10 @@ class FuzzyC2Cpg() {
         println("Operation name: " + operationName)
 
         if(operationName.equals("FunctionCall")) {
+          return registerStatement(graph, operation, order)
+        }
+
+        if(operationName.equals("BinaryOperation")) {
           return registerStatement(graph, operation, order)
         }
 
