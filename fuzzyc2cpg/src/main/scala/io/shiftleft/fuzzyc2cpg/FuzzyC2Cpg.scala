@@ -22,7 +22,7 @@ case class Global(usedTypes: ConcurrentHashMap[String, Boolean] = new Concurrent
 
 class FuzzyC2Cpg() {
   import FuzzyC2Cpg.logger
-  val BASE_ID = 1000100
+  val BASE_ID = 1000200
 
   def runWithPreprocessorAndOutput(sourcePaths: Set[String],
                                    sourceFileExtensions: Set[String],
@@ -123,7 +123,9 @@ class FuzzyC2Cpg() {
     getField(jsonObject, attributeName).asInstanceOf[List[Object]]
   }
 
-  def registerStruct(graph: Graph, wrappedStruct: JsonAST.JValue): Unit = {
+  // Enums do not contain members in the CPG AST. However, this seems useful. So I'm
+  // using pretty much the same function I wrote for handling structs (slight modifications).
+  def registerStructOrEnum(graph: Graph, wrappedStruct: JsonAST.JValue): Unit = {
     val structId = getFieldInt(wrappedStruct, "id")
     val structAttributesWrapped = getFieldWrapped(wrappedStruct, "attributes")
 
@@ -149,10 +151,10 @@ class FuzzyC2Cpg() {
       val attributes = memberComponent("attributes").asInstanceOf[Map[String, Object]]
       val memberId = memberComponent("id").toString.toInt
       val nodeName = memberComponent("name").toString
-      require(nodeName.equals("VariableDeclaration"))
+      require(nodeName.equals("VariableDeclaration") || nodeName.equals("EnumValue"))
 
       val memberName = attributes("name").toString
-      val memberType = attributes("type").toString
+      val memberType = if(attributes.keys.exists(_.equals("type"))) attributes("type").toString else "ENUM"
 
       graph.addNode(BASE_ID + memberId, "MEMBER")
       graph.node(BASE_ID + memberId).setProperty("TYPE_FULL_NAME", memberType)
@@ -1130,7 +1132,7 @@ class FuzzyC2Cpg() {
 
         graph.node(1000100).addEdge("AST", graph.node(1000101))
 
-        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast18.json").getLines.mkString
+        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast21.json").getLines.mkString
         val originalAst = parse(fileContents)
 
         /*childrenOpt match {
@@ -1160,7 +1162,8 @@ class FuzzyC2Cpg() {
           name match {
             case "VariableDeclaration" => registerVariable(graph, wrappedContractLevelElement)
             case "FunctionDefinition" => registerFunctionHeader(graph, wrappedContractLevelElement)
-            case "StructDefinition" => registerStruct(graph, wrappedContractLevelElement)
+            case "StructDefinition" => registerStructOrEnum(graph, wrappedContractLevelElement)
+            case "EnumDefinition" => registerStructOrEnum(graph, wrappedContractLevelElement)
             case _ => {}
           }
         })
