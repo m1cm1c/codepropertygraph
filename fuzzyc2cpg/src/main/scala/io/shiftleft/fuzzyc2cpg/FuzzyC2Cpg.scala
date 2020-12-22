@@ -307,7 +307,9 @@ class FuzzyC2Cpg() {
 
     var blockNodeId = 0l
 
-    if(modifierComponents.length == 0) {
+    // Modifiers of constructors (empty function name) call the parent's
+    // constructor. This is not supported.
+    if(modifierComponents.length == 0 || functionName.equals("")) {
       // Deal with function body.
       val placeholderReplacement = ""
       val placeholderArguments = List()
