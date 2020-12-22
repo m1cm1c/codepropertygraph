@@ -203,10 +203,15 @@ class FuzzyC2Cpg() {
 
     val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
     val functionComponents = getFieldList(wrappedFunction, "children")
+    var offset = 0
     val includesDocumentation = functionComponents(0).asInstanceOf[Map[String, Object]]("name").toString.equals("StructuredDocumentation")
-    val parameterListComponent = functionComponentsWrapped.children(if(!includesDocumentation) 0 else 1)
-    val returnValuesListComponent = functionComponentsWrapped.children(if(!includesDocumentation) 1 else 2)
-
+    if(includesDocumentation)
+      offset += 1
+    val includesOverrideSpecifier = functionComponents(offset).asInstanceOf[Map[String, Object]]("name").toString.equals("OverrideSpecifier")
+    if(includesOverrideSpecifier)
+      offset += 1
+    val parameterListComponent = functionComponentsWrapped.children(offset)
+    val returnValuesListComponent = functionComponentsWrapped.children(offset + 1)
     // Deal with function parameters.
     val parameterList = parameterListComponent.values.asInstanceOf[Map[String, List[Object]]]
     var order = 1
@@ -275,9 +280,17 @@ class FuzzyC2Cpg() {
 
     val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
     val functionComponents = getFieldList(wrappedFunction, "children")
+
+    var offset = 0
     val includesDocumentation = functionComponents(0).asInstanceOf[Map[String, Object]]("name").toString.equals("StructuredDocumentation")
+    if(includesDocumentation)
+      offset += 1
+    val includesOverrideSpecifier = functionComponents(offset).asInstanceOf[Map[String, Object]]("name").toString.equals("OverrideSpecifier")
+    if(includesOverrideSpecifier)
+      offset += 1
+
     val bodyComponent = functionComponents(functionComponents.length-1)
-    var modifierComponents = functionComponents.slice(if(!includesDocumentation) 2 else 3, functionComponents.length-1)
+    var modifierComponents = functionComponents.slice(offset + 2, functionComponents.length-1)
 
     // Remove modifiers that were already dealt with in previous calls to this function.
     modifierComponents = modifierComponents.slice(0, modifierComponents.length - numberOfModifiersRemoved)
