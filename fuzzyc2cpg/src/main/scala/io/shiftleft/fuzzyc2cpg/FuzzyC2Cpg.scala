@@ -181,7 +181,8 @@ class FuzzyC2Cpg() {
       return
     }
 
-    require(getFieldString(functionAttributesWrapped, "kind").equals("function"))
+    val kind = getFieldString(functionAttributesWrapped, "kind")
+    require(kind.equals("function") || kind.equals("constructor"))
 
     graph.addNode(BASE_ID + functionId, "METHOD")
     graph.node(BASE_ID + functionId).setProperty("COLUMN_NUMBER", 0)
@@ -269,7 +270,8 @@ class FuzzyC2Cpg() {
       return
     }
 
-    require(getFieldString(functionAttributesWrapped, "kind").equals("function"))
+    val kind = getFieldString(functionAttributesWrapped, "kind")
+    require(kind.equals("function") || kind.equals("constructor"))
 
     val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
     val functionComponents = getFieldList(wrappedFunction, "children")
