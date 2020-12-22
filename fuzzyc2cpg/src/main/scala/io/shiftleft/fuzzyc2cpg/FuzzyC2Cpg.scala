@@ -22,7 +22,7 @@ case class Global(usedTypes: ConcurrentHashMap[String, Boolean] = new Concurrent
 
 class FuzzyC2Cpg() {
   import FuzzyC2Cpg.logger
-  val BASE_ID = 1000200
+  val REAL_BASE_ID = 1000200l
 
   def runWithPreprocessorAndOutput(sourcePaths: Set[String],
                                    sourceFileExtensions: Set[String],
@@ -131,6 +131,8 @@ class FuzzyC2Cpg() {
 
     val structName = getFieldString(structAttributesWrapped, "name")
 
+    val BASE_ID = REAL_BASE_ID
+
     graph.addNode(BASE_ID + structId, "TYPE_DECL")
     graph.node(BASE_ID + structId).setProperty("AST_PARENT_TYPE", "") // I'm leaving these two empty because (contrary to the documentation)
     graph.node(BASE_ID + structId).setProperty("AST_PARENT_FULL_NAME", "") // they always seem to be left empty.
@@ -167,11 +169,11 @@ class FuzzyC2Cpg() {
     }
   }
 
-  def registerFunctionHeader(graph: Graph, wrappedFunction: JsonAST.JValue): Unit = {
+  def registerFunctionHeader(graph: Graph, wrappedFunction: JsonAST.JValue, BASE_ID: Long = REAL_BASE_ID, functionNamePostfix: String = ""): Unit = {
     val functionId = getFieldInt(wrappedFunction, "id")
     val functionAttributesWrapped = getFieldWrapped(wrappedFunction, "attributes")
 
-    val functionName = getFieldString(functionAttributesWrapped, "name")
+    val functionName = getFieldString(functionAttributesWrapped, "name") + functionNamePostfix
     val isImplemented = getFieldBoolean(functionAttributesWrapped, "implemented")
 
     // Ignore unimplemented functions.
@@ -200,7 +202,7 @@ class FuzzyC2Cpg() {
 
     val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
     val functionComponents = getFieldList(wrappedFunction, "children")
-    val includesDocumentation = functionComponentsWrapped.children.length == 4
+    val includesDocumentation = functionComponents(0).asInstanceOf[Map[String, Object]]("name").toString.equals("StructuredDocumentation")
     val parameterListComponent = functionComponentsWrapped.children(if(!includesDocumentation) 0 else 1)
     val returnValuesListComponent = functionComponentsWrapped.children(if(!includesDocumentation) 1 else 2)
 
@@ -255,7 +257,7 @@ class FuzzyC2Cpg() {
     }
   }
 
-  def registerFunctionBody(graph: Graph, wrappedFunction: JsonAST.JValue): Unit = {
+  def registerFunctionBody(graph: Graph, modifierDefinitions: List[Map[String, Object]], wrappedFunction: JsonAST.JValue, numberOfModifiersRemoved: Int = 0): Unit = {
     val functionId = getFieldInt(wrappedFunction, "id")
     val functionAttributesWrapped = getFieldWrapped(wrappedFunction, "attributes")
 
@@ -271,23 +273,143 @@ class FuzzyC2Cpg() {
 
     val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
     val functionComponents = getFieldList(wrappedFunction, "children")
-    val includesDocumentation = functionComponentsWrapped.children.length == 4
-    val bodyComponent = functionComponents(if(!includesDocumentation) 2 else 3)
+    val includesDocumentation = functionComponents(0).asInstanceOf[Map[String, Object]]("name").toString.equals("StructuredDocumentation")
+    val bodyComponent = functionComponents(functionComponents.length-1)
+    var modifierComponents = functionComponents.slice(if(!includesDocumentation) 2 else 3, functionComponents.length-1)
+
+    // Remove modifiers that were already dealt with in previous calls to this function.
+    modifierComponents = modifierComponents.slice(0, modifierComponents.length - numberOfModifiersRemoved)
 
     // At this point (after execution of registerFunctionHeader()), only the
     // input parameters and the return value are outgoing AST edges. So the
     // block's order is the same as the number of outgoing edges. The return
     // value's order is one larger than the block's order.
     var numberOfOutgoingAstEdges = 0
-    graph.node(BASE_ID + functionId).out("AST").forEachRemaining(node => numberOfOutgoingAstEdges += 1)
+    graph.node(REAL_BASE_ID + functionId).out("AST").forEachRemaining(node => numberOfOutgoingAstEdges += 1)
     val blockOrder = numberOfOutgoingAstEdges
 
-    // Deal with function body.
-    val blockId = registerBlock(graph, bodyComponent.asInstanceOf[Map[String, Object]], blockOrder)
-    graph.node(BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + blockId))
+    val order = if(numberOfModifiersRemoved == 0) blockOrder else 1
+
+    var blockNodeId = 0l
+
+    if(modifierComponents.length == 0) {
+      // Deal with function body.
+      val placeholderReplacement = ""
+      val placeholderArguments = List()
+      val blockId = registerBlock(graph, bodyComponent.asInstanceOf[Map[String, Object]], order, REAL_BASE_ID, placeholderReplacement, placeholderArguments)
+      blockNodeId = REAL_BASE_ID + blockId
+    } else {
+      // Iterate through modifiers in reverse order because they are nested around
+      // the function body with the first modifier forming the outer-most layer.
+      // General idea: Pass a "function pointer" to the modifier. In places where
+      // the underscore operator occurs, the "function pointer" is used to call
+      // the "function". It's not a real function because we cannot use this
+      // function (otherwise we couldn't pass function parameters to modifiers)
+      // but we can use the bodyBlockId.
+      val BASE_ID = 10*(10*functionId+numberOfModifiersRemoved)*REAL_BASE_ID+REAL_BASE_ID
+
+      val subFunctionNamePostfix = "_MODIFIERS_REMOVED_" + (numberOfModifiersRemoved + 1)
+      val subFunctionName = functionName + subFunctionNamePostfix
+      registerFunctionHeader(graph, wrappedFunction, BASE_ID, subFunctionNamePostfix)
+      registerFunctionBody(graph, modifierDefinitions, wrappedFunction, numberOfModifiersRemoved+1)
+
+      val modifierComponent = modifierComponents(modifierComponents.length - 1)
+      val modifierInstanceName = registerModifierInstance(graph, modifierDefinitions, BASE_ID, subFunctionName, numberOfModifiersRemoved, modifierComponent.asInstanceOf[Map[String, Object]])
+
+      graph.addNode(BASE_ID - 1, "BLOCK")
+      graph.node(BASE_ID - 1).setProperty("ORDER", order)
+      graph.node(BASE_ID - 1).setProperty("ARGUMENT_INDEX", order)
+      graph.node(BASE_ID - 1).setProperty("CODE", "")
+      graph.node(BASE_ID - 1).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID - 1).setProperty("TYPE_FULL_NAME", "void")
+      graph.node(BASE_ID - 1).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID - 1).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+      graph.addNode(BASE_ID, "CALL")
+      graph.node(BASE_ID).setProperty("ORDER", 1)
+      graph.node(BASE_ID).setProperty("ARGUMENT_INDEX", 1)
+      graph.node(BASE_ID).setProperty("CODE", "")
+      graph.node(BASE_ID).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID).setProperty("METHOD_FULL_NAME", modifierInstanceName) // This could alternatively be set to the value of property "FULL_NAME" of node BASE_ID + functionReferencedId.
+      graph.node(BASE_ID).setProperty("TYPE_FULL_NAME", "ANY")
+      graph.node(BASE_ID).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+      graph.node(BASE_ID).setProperty("SIGNATURE", "TODO assignment signature")
+      graph.node(BASE_ID).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID).setProperty("NAME", modifierInstanceName)
+
+      graph.node(BASE_ID - 1).addEdge("AST", graph.node(BASE_ID))
+
+      blockNodeId = BASE_ID - 1
+    }
+
+    // In the outer-most case, an additional AST edge is needed to connect the function definition with the block ID.
+    if(numberOfModifiersRemoved == 0) {
+      graph.node(REAL_BASE_ID + functionId).addEdge("AST", graph.node(blockNodeId))
+    }
   }
 
-  def registerBlock(graph: Graph, block: Map[String, Object], order: Int): Int = {
+  def registerModifierInstance(graph: Graph, modifierDefinitions: List[Map[String, Object]], BASE_ID: Long, placeholderReplacement: String, numberOfModifiersRemoved: Int, modifierInvocation: Map[String, Object]): String = {
+    val modifierInvocationChildren = modifierInvocation("children").asInstanceOf[List[Map[String, Object]]]
+    val modifierInvocationArguments = modifierInvocationChildren.slice(1, modifierInvocationChildren.length)
+    val modifierReferenceId = modifierInvocationChildren(0)("attributes").asInstanceOf[Map[String, Object]]("referencedDeclaration").toString.toInt
+
+    val modifierDefinition = modifierDefinitions.filter(_("id").toString.toInt == modifierReferenceId)(0)
+
+    val modifierName = modifierDefinition("attributes").asInstanceOf[Map[String, Object]]("name").toString
+    val modifierInstanceName = modifierName + "_CALLING_" + placeholderReplacement
+    val modifierId = modifierDefinition("id").toString.toInt
+    val modifierChildren = modifierDefinition("children").asInstanceOf[List[Map[String, Object]]]
+
+    graph.addNode(BASE_ID + modifierId, "METHOD")
+    graph.node(BASE_ID + modifierId).setProperty("COLUMN_NUMBER", 0)
+    graph.node(BASE_ID + modifierId).setProperty("LINE_NUMBER", 0)
+    graph.node(BASE_ID + modifierId).setProperty("COLUMN_NUMBER_END", 0)
+    graph.node(BASE_ID + modifierId).setProperty("IS_EXTERNAL", false)
+    graph.node(BASE_ID + modifierId).setProperty("SIGNATURE", modifierName)
+    graph.node(BASE_ID + modifierId).setProperty("NAME", modifierName)
+    graph.node(BASE_ID + modifierId).setProperty("AST_PARENT_TYPE", "") // I'm leaving these two empty because (contrary to the documentation)
+    graph.node(BASE_ID + modifierId).setProperty("AST_PARENT_FULL_NAME", "") // they always seem to be left empty.
+    graph.node(BASE_ID + modifierId).setProperty("ORDER", -1)
+    graph.node(BASE_ID + modifierId).setProperty("CODE", modifierName)
+    graph.node(BASE_ID + modifierId).setProperty("FULL_NAME", modifierName)
+    graph.node(BASE_ID + modifierId).setProperty("LINE_NUMBER_END", 0)
+    graph.node(BASE_ID + modifierId).setProperty("FILENAME", "")
+
+    graph.node(1000101).addEdge("AST", graph.node(BASE_ID + modifierId))
+
+    val parameterList = modifierChildren(0).asInstanceOf[Map[String, List[Object]]]
+    var order = 1
+    for(attributeSpecificObject <- parameterList("children")) {
+      val attributeSpecificMap = attributeSpecificObject.asInstanceOf[Map[String, Object]]
+      val parameterId = attributeSpecificMap("id").toString.toInt
+      val attributeMap = attributeSpecificMap("attributes").asInstanceOf[Map[String, Object]]
+      val parameterName = attributeMap("name").toString
+      val parameterType = attributeMap("type").toString
+
+      graph.addNode(BASE_ID + parameterId, "METHOD_PARAMETER_IN")
+      graph.node(BASE_ID + parameterId).setProperty("ORDER", order)
+      graph.node(BASE_ID + parameterId).setProperty("CODE", parameterType + " " + parameterName)
+      graph.node(BASE_ID + parameterId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + parameterId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + parameterId).setProperty("TYPE_FULL_NAME", parameterType)
+      graph.node(BASE_ID + parameterId).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
+      graph.node(BASE_ID + parameterId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID + parameterId).setProperty("NAME", parameterName)
+
+      graph.node(BASE_ID + modifierId).addEdge("AST", graph.node(BASE_ID + parameterId))
+
+      order += 1
+    }
+
+    registerBlock(graph, modifierChildren(1), 1, BASE_ID, placeholderReplacement, modifierInvocationArguments)
+
+    // TODO: IS A RETURN VALUE REQUIRED?
+
+    modifierInstanceName
+  }
+
+  def registerBlock(graph: Graph, block: Map[String, Object], order: Int, BASE_ID: Long, placeholderReplacement: String, placeholderArguments: List[Map[String, Object]]): Int = {
     println(block("name"))
     require(block("name").asInstanceOf[String].equals("Block"))
 
@@ -310,7 +432,7 @@ class FuzzyC2Cpg() {
     println(statementsList.length)
     var statementOrder = 1
     for(statement <- statementsList) {
-      val statementIds = registerStatement(graph, statement, statementOrder)
+      val statementIds = registerStatement(graph, statement, statementOrder, BASE_ID, placeholderReplacement, placeholderArguments)
       for(statementId <- statementIds) {
         graph.node(BASE_ID + blockId).addEdge("AST", graph.node(BASE_ID + statementId))
       }
@@ -321,7 +443,7 @@ class FuzzyC2Cpg() {
     blockId
   }
 
-  def registerStatement(graph: Graph, statement: Object, _order: Int): Array[Int] = {
+  def registerStatement(graph: Graph, statement: Object, _order: Int, BASE_ID: Long, placeholderReplacement: String, placeholderArguments: List[Map[String, Object]]): Array[Long] = {
     // Avoiding stupid Scala rule about parameters being read-only.
     var order = _order
 
@@ -331,6 +453,31 @@ class FuzzyC2Cpg() {
     println("Statement name: " + statementName)
     val statementId = statementMap("id").toString.toInt
     println("Statement ID: " + statementId)
+
+    if(statementName.equals("PlaceholderStatement")) {
+      graph.addNode(BASE_ID + statementId, "CALL")
+      graph.node(BASE_ID + statementId).setProperty("ORDER", order)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
+      graph.node(BASE_ID + statementId).setProperty("CODE", placeholderReplacement + "(...)")
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", placeholderReplacement)
+      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+      graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
+      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID + statementId).setProperty("NAME", placeholderReplacement)
+
+      var argumentNumber = 1
+      for(argumentComponent <- placeholderArguments) {
+        val argumentId = registerStatement(graph, argumentComponent, argumentNumber, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+        graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + argumentId))
+        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + argumentId))
+        argumentNumber += 1
+      }
+
+      return Array(statementId)
+    }
 
     if(statementName.equals("Literal") || statementName.equals("Identifier")) {
       val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
@@ -361,11 +508,11 @@ class FuzzyC2Cpg() {
       println("Processing tuple expression")
       require(statementChildren.length == 1)
 
-      return registerStatement(graph, statementChildren(0), order)
+      return registerStatement(graph, statementChildren(0), order, BASE_ID, placeholderReplacement, placeholderArguments)
     }
 
     if(statementName.equals("MemberAccess")) {
-      val memberAccessId = memberAccessHelper(graph, statement.asInstanceOf[Map[String, Object]])
+      val memberAccessId = memberAccessHelper(graph, BASE_ID, statement.asInstanceOf[Map[String, Object]])
       return Array(memberAccessId)
     }
 
@@ -390,7 +537,7 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("CODE", code)
       graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
 
-      val idChild = registerStatement(graph, statementChildren(0), 1)(0)
+      val idChild = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
       graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idChild))
       graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + idChild))
@@ -409,7 +556,7 @@ class FuzzyC2Cpg() {
     }
 
     if(statementName.equals("Block")) {
-      val blockId = registerBlock(graph, statementMap, order)
+      val blockId = registerBlock(graph, statementMap, order, BASE_ID, placeholderReplacement, placeholderArguments)
       return Array(blockId)
     }
 
@@ -417,8 +564,8 @@ class FuzzyC2Cpg() {
       val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
       val statementDataType = statementAttributes("type").toString
 
-      val idLeftChild = registerStatement(graph, statementChildren(0), 1)(0)
-      val idRightChild = registerStatement(graph, statementChildren(1), 2)(0)
+      val idLeftChild = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+      val idRightChild = registerStatement(graph, statementChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
       val codeLeft = graph.node(BASE_ID + idLeftChild).property("CODE")
       val codeRight = graph.node(BASE_ID + idRightChild).property("CODE")
@@ -472,7 +619,7 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + statementId).setProperty("NAME", operatorName)
 
-      val idChild = registerStatement(graph, statementChildren(0), 1)(0)
+      val idChild = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
       println("my child is:")
       println(graph.node(BASE_ID + idChild))
       graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idChild))
@@ -482,7 +629,7 @@ class FuzzyC2Cpg() {
     }
 
     if(statementName.equals("VariableDeclarationStatement")) {
-      var returnIds = List[Int]()
+      var returnIds = List[Long]()
 
       // There are 3 cases depending on the number of children:
       // 1 child:    A VariableDeclaration.
@@ -509,7 +656,7 @@ class FuzzyC2Cpg() {
         require(false)
       }
 
-      def registerVariableDeclaration(operation: Map[String, Object]): (Map[String, Object], Int, Int) = {
+      def registerVariableDeclaration(operation: Map[String, Object]): (Map[String, Object], Long, Int) = {
         val variableAttributes = operation("attributes").asInstanceOf[Map[String, Object]]
         val variableDataType = variableAttributes("type").toString
         val variableName = variableAttributes("name").toString
@@ -529,17 +676,17 @@ class FuzzyC2Cpg() {
         (variableAttributes, declarationOperationId + 1 * BASE_ID, declarationOperationId)
       }
 
-      def registerVariableAssignment(variableAttributes: Map[String, Object], assignmentLeftId: Int, localId: Int, statementRight: Map[String, Object]) {
+      def registerVariableAssignment(variableAttributes: Map[String, Object], assignmentLeftId: Long, localId: Long, statementRight: Map[String, Object]) {
         val variableName = variableAttributes("name").toString
 
         val statementRightAttributes = statementRight("attributes").asInstanceOf[Map[String, Object]]
-        val statementRightId = registerStatement(graph, statementRight, 2)(0)
+        val statementRightId = registerStatement(graph, statementRight, 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
         // We need more nodes than the Solidity AST provides. Therefore, instead of declarationOperationId, 1*BASE_ID + declarationOperationId is passed in.
         // The reason that we need more nodes is that the CPG AST requires you to link to an Identifier Node which in turn links to the Local node. You cannot link
         // to a Local node directly via an argument edge.
         // Update: Need even more IDs. => 4*BASE_ID + statementRightId
-        assignmentHelper(graph, 4*BASE_ID + statementRightId, order, assignmentLeftId, variableName, localId, statementRightId)
+        assignmentHelper(graph, BASE_ID, 4*BASE_ID + statementRightId, order, assignmentLeftId, variableName, localId, statementRightId)
         order += 1
         returnIds = returnIds.appended(4*BASE_ID + statementRightId)
       }
@@ -563,11 +710,11 @@ class FuzzyC2Cpg() {
 
       if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")
         || statementName.equals("DoWhileStatement")) {
-        val conditionId = registerStatement(graph, operation, 1)(0)
+        val conditionId = registerStatement(graph, operation, 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
         // There never are several action IDs. This is because in Solidity,
         // variable delarations in an if's or loop's body is illegal unless that
         // body is a block.
-        val actionId = registerStatement(graph, statementChildren(1), 2)(0)
+        val actionId = registerStatement(graph, statementChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
         graph.node(BASE_ID + statementId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
         graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + conditionId))
@@ -575,7 +722,7 @@ class FuzzyC2Cpg() {
 
         // Handle "else" part if present.
         if(statementChildren.length == 3) {
-          val alternativeActionId = registerStatement(graph, statementChildren(2), 1)(0)
+          val alternativeActionId = registerStatement(graph, statementChildren(2), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
           // We need a node that is not present in the Solidity AST so we add the BASE_ID twice.
           graph.addNode(2*BASE_ID + statementId, "CONTROL_STRUCTURE")
@@ -590,10 +737,10 @@ class FuzzyC2Cpg() {
           graph.node(2*BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + alternativeActionId))
         }
       } else {
-        val initialActionIds = registerStatement(graph, operation, 1)
-        val conditionId = registerStatement(graph, statementChildren(1), 2)(0)
-        val incrementId = registerStatement(graph, statementChildren(2), 3)(0)
-        val actionId = registerStatement(graph, statementChildren(3), 4)(0)
+        val initialActionIds = registerStatement(graph, operation, 1, BASE_ID, placeholderReplacement, placeholderArguments)
+        val conditionId = registerStatement(graph, statementChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+        val incrementId = registerStatement(graph, statementChildren(2), 3, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+        val actionId = registerStatement(graph, statementChildren(3), 4, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
         // Weird order bc that's the order that the CPG AST uses.
         graph.node(BASE_ID + statementId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
@@ -626,8 +773,8 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("NAME", "<operator>.assignment")
       order += 1
 
-      val leftId = registerStatement(graph, statementChildren(0), 1)(0)
-      val rightId = registerStatement(graph, statementChildren(1), 2)(0)
+      val leftId = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+      val rightId = registerStatement(graph, statementChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
       graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + leftId))
       graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + rightId))
@@ -678,7 +825,7 @@ class FuzzyC2Cpg() {
 
       var argumentNumber = 1
       for(argumentComponent <- argumentComponents) {
-        val argumentId = registerStatement(graph, argumentComponent, argumentNumber)(0)
+        val argumentId = registerStatement(graph, argumentComponent, argumentNumber, BASE_ID, placeholderReplacement, placeholderArguments)(0)
         graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + argumentId))
         graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + argumentId))
         argumentNumber += 1
@@ -692,15 +839,15 @@ class FuzzyC2Cpg() {
         println("Operation name: " + operationName)
 
         if(operationName.equals("FunctionCall")) {
-          return registerStatement(graph, operation, order)
+          return registerStatement(graph, operation, order, BASE_ID, placeholderReplacement, placeholderArguments)
         }
 
         if(operationName.equals("BinaryOperation")) {
-          return registerStatement(graph, operation, order)
+          return registerStatement(graph, operation, order, BASE_ID, placeholderReplacement, placeholderArguments)
         }
 
         if(operationName.equals("UnaryOperation")) {
-          return registerStatement(graph, operation, order)
+          return registerStatement(graph, operation, order, BASE_ID, placeholderReplacement, placeholderArguments)
         }
 
         val operationChildren = operation("children").asInstanceOf[List[Object]]
@@ -710,10 +857,10 @@ class FuzzyC2Cpg() {
           require(operationAttributes("operator").toString.equals("="))
           require(operationChildren.length == 2)
 
-          var statementIds = List[Int]()
+          var statementIds = List[Long]()
           var statementsLeft = List[Map[String, Object]]()
           var statementsRight = List[Map[String, Object]]()
-          var localVariablesIds = List[Int]()
+          var localVariablesIds = List[Long]()
 
           if (!operationAttributes("type").equals("tuple()")) {
             statementIds = List(statementId)
@@ -779,7 +926,7 @@ class FuzzyC2Cpg() {
             val statementRight = statementsRight(i)
 
             val statementLeftId = statementLeft("id").toString.toInt
-            val statementRightId = registerStatement(graph, statementRight, 2)(0)
+            val statementRightId = registerStatement(graph, statementRight, 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
             val statementLeftAttributes = statementLeft("attributes").asInstanceOf[Map[String, Object]]
             val statementLeftKind = statementLeft("name").toString
@@ -790,7 +937,7 @@ class FuzzyC2Cpg() {
               val statementLeftVariableName = statementLeftAttributes("value").toString
               val statementLeftReferencedId = statementLeftAttributes("referencedDeclaration").toString.toInt
               println("entering assignment helper")
-              assignmentHelper(graph, statementIdI, order, statementLeftId, statementLeftVariableName, statementLeftReferencedId, statementRightId)
+              assignmentHelper(graph, BASE_ID, statementIdI, order, statementLeftId, statementLeftVariableName, statementLeftReferencedId, statementRightId)
               order += 1
               println("exited assignment helper")
             } else if (statementLeftKind.equals("MemberAccess")) {
@@ -816,14 +963,14 @@ class FuzzyC2Cpg() {
               graph.node(BASE_ID + statementIdI).setProperty("NAME", "<operator>.assignment")
               order += 1
 
-              memberAccessHelper(graph, memberAccess)
+              memberAccessHelper(graph, BASE_ID, memberAccess)
 
               graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
               graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementRightId))
               graph.node(BASE_ID + statementIdI).addEdge("AST", graph.node(BASE_ID + statementLeftId)) // This edge seems to be added somewhere else. But idk where, so I'm adding it another time.
               graph.node(BASE_ID + statementIdI).addEdge("AST", graph.node(BASE_ID + statementRightId))
             } else if(statementLeftKind.equals("IndexAccess")) {
-              val statementLeftId_ = registerStatement(graph, statementLeft, 1)(0)
+              val statementLeftId_ = registerStatement(graph, statementLeft, 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
               require(statementLeftId_ == statementLeftId)
 
               val codeLeft = graph.node(BASE_ID + statementLeftId).property("CODE")
@@ -864,7 +1011,7 @@ class FuzzyC2Cpg() {
   }
 
   // TODO: optimize away using even more recursion
-  def assignmentHelper(graph: Graph, operationId: Int, order: Int, statementLeftId: Int, statementLeftVariableName: String, statementLeftReferencedId: Int, statementRightId: Int): Unit = {
+  def assignmentHelper(graph: Graph, BASE_ID: Long, operationId: Long, order: Int, statementLeftId: Long, statementLeftVariableName: String, statementLeftReferencedId: Long, statementRightId: Long): Unit = {
     graph.addNode(BASE_ID + operationId, "CALL")
     graph.node(BASE_ID + operationId).setProperty("ORDER", order)
     graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", order)
@@ -901,7 +1048,7 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementLeftId).addEdge("REF", referencedVariableNode)
   }
 
-  def memberAccessHelper(graph: Graph, memberAccess: Map[String, Object]): Int = {
+  def memberAccessHelper(graph: Graph, BASE_ID: Long, memberAccess: Map[String, Object]): Int = {
     val memberAccessAttributes = memberAccess("attributes").asInstanceOf[Map[String, Object]]
     val memberAccessId = memberAccess("id").toString.toInt
     val memberName = memberAccessAttributes("member_name").toString
@@ -970,6 +1117,8 @@ class FuzzyC2Cpg() {
     val variableDataType = variableAttributes("type").toString
     val variableName = variableAttributes("name").toString
 
+    val BASE_ID = REAL_BASE_ID
+
     graph.addNode(BASE_ID + declarationOperationId, "LOCAL")
     graph.node(BASE_ID + declarationOperationId).setProperty("TYPE_FULL_NAME", variableDataType)
     graph.node(BASE_ID + declarationOperationId).setProperty("ORDER", order)
@@ -981,8 +1130,11 @@ class FuzzyC2Cpg() {
     graph.node(1000101).addEdge("AST", graph.node(BASE_ID + declarationOperationId))
 
     if(children.length == 2) {
-      val statementRightId = registerStatement(graph, children(1), 2)(0)
-      assignmentHelper(graph, 4 * BASE_ID + statementRightId, order, declarationOperationId + 1 * BASE_ID, variableName, declarationOperationId, statementRightId)
+      val BASE_ID = REAL_BASE_ID
+      val placeholderReplacement = ""
+      val placeholderArguments = List()
+      val statementRightId = registerStatement(graph, children(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+      assignmentHelper(graph, BASE_ID, 4 * BASE_ID + statementRightId, order, declarationOperationId + 1 * BASE_ID, variableName, declarationOperationId, statementRightId)
 
       graph.node(1000101).addEdge("AST", graph.node(BASE_ID + 4 * BASE_ID + statementRightId))
     }
@@ -1132,7 +1284,7 @@ class FuzzyC2Cpg() {
 
         graph.node(1000100).addEdge("AST", graph.node(1000101))
 
-        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast21.json").getLines.mkString
+        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast22.json").getLines.mkString
         val originalAst = parse(fileContents)
 
         /*childrenOpt match {
@@ -1167,13 +1319,28 @@ class FuzzyC2Cpg() {
             case _ => {}
           }
         })
+
+        // Collect modifier definitions.
+        var modifierDefinitions = List[Map[String, Object]]()
         contractLevel.foreach(wrappedContractLevelElement => {
           val name = wrappedContractLevelElement.findField(jfield => {
             jfield._1.equals("name")
           }).get._2.values.toString
-
           name match {
-            case "FunctionDefinition" => registerFunctionBody(graph, wrappedContractLevelElement)
+            case "ModifierDefinition" => {
+              val modifierDefinition = wrappedContractLevelElement.values.asInstanceOf[Map[String, Object]]
+              modifierDefinitions = modifierDefinitions.appended(modifierDefinition)
+            }
+            case _ => {}
+          }
+        })
+
+        contractLevel.foreach(wrappedContractLevelElement => {
+          val name = wrappedContractLevelElement.findField(jfield => {
+            jfield._1.equals("name")
+          }).get._2.values.toString
+          name match {
+            case "FunctionDefinition" => registerFunctionBody(graph, modifierDefinitions, wrappedContractLevelElement)
             case _ => {}
           }
         })
