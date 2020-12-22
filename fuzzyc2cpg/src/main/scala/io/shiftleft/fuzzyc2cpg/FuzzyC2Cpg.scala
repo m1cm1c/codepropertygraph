@@ -454,6 +454,10 @@ class FuzzyC2Cpg() {
     val statementId = statementMap("id").toString.toInt
     println("Statement ID: " + statementId)
 
+    if(statementName.equals("EmitStatement")) {
+      return Array()
+    }
+
     if(statementName.equals("PlaceholderStatement")) {
       graph.addNode(BASE_ID + statementId, "CALL")
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
@@ -1284,7 +1288,7 @@ class FuzzyC2Cpg() {
 
         graph.node(1000100).addEdge("AST", graph.node(1000101))
 
-        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast22.json").getLines.mkString
+        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast23.json").getLines.mkString
         val originalAst = parse(fileContents)
 
         /*childrenOpt match {
