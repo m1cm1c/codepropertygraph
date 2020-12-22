@@ -621,10 +621,11 @@ class FuzzyC2Cpg() {
 
       val operatorSymbol = statementAttributes("operator").toString
       val isPrefixOperator = statementAttributes("prefix").equals(true)
-      val symbol = statementChildren(0).asInstanceOf[Map[String, Object]]("attributes").asInstanceOf[Map[String, Object]]("value").toString
+
+      val idChild = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+      val symbol = graph.node(BASE_ID + idChild).property("CODE")
 
       val code = if (isPrefixOperator) operatorSymbol + symbol else symbol + operatorSymbol
-
       val operatorName = getUnaryOperatorName(operatorSymbol, isPrefixOperator)
 
       graph.addNode(BASE_ID + statementId, "CALL")
@@ -640,7 +641,6 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + statementId).setProperty("NAME", operatorName)
 
-      val idChild = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
       println("my child is:")
       println(graph.node(BASE_ID + idChild))
       graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idChild))
