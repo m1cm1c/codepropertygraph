@@ -1301,27 +1301,29 @@ class FuzzyC2Cpg() {
 
         graph.node(1000100).addEdge("AST", graph.node(1000101))
 
-        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast23.json").getLines.mkString
+        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast24.json").getLines.mkString
         val originalAst = parse(fileContents)
 
         /*childrenOpt match {
         case Some(children) => println(children._2)
         case None => println("no children")
       }*/
-
-        val contractLevel = originalAst.findField((jfield) => {
+        val topLevelElements = originalAst.findField((jfield) => {
           jfield._1.equals("children")
         }).get._2
-          .children(0).findField((jfield) => {
+        val contracts = topLevelElements.children.filter(thing => {
+          thing.values.asInstanceOf[Map[String, Object]]("name").equals("ContractDefinition")
+        })
+
+      for(contract <- contracts) {
+        val contractLevelElements = contract.findField((jfield) => {
           jfield._1.equals("children")
         }).get._2
           .children
-        println(contractLevel)
-        println(contractLevel.length)
 
         // We need to loop through twice because otherwise we wouldn't be able
         // to access function definitions in function bodies.
-        contractLevel.foreach(wrappedContractLevelElement => {
+        contractLevelElements.foreach(wrappedContractLevelElement => {
           // This is equivalent to this JS code:
           // let name = wrappedContractLevelElement.name
           val name = wrappedContractLevelElement.findField(jfield => {
@@ -1339,7 +1341,7 @@ class FuzzyC2Cpg() {
 
         // Collect modifier definitions.
         var modifierDefinitions = List[Map[String, Object]]()
-        contractLevel.foreach(wrappedContractLevelElement => {
+        contractLevelElements.foreach(wrappedContractLevelElement => {
           val name = wrappedContractLevelElement.findField(jfield => {
             jfield._1.equals("name")
           }).get._2.values.toString
@@ -1352,7 +1354,7 @@ class FuzzyC2Cpg() {
           }
         })
 
-        contractLevel.foreach(wrappedContractLevelElement => {
+        contractLevelElements.foreach(wrappedContractLevelElement => {
           val name = wrappedContractLevelElement.findField(jfield => {
             jfield._1.equals("name")
           }).get._2.values.toString
@@ -1362,6 +1364,7 @@ class FuzzyC2Cpg() {
           }
         })
         println("processing completed")
+      }
     }
     printNodes(graph)
     printEdges(graph)
