@@ -366,13 +366,13 @@ class FuzzyC2Cpg() {
     graph.node(BASE_ID + modifierId).setProperty("LINE_NUMBER", 0)
     graph.node(BASE_ID + modifierId).setProperty("COLUMN_NUMBER_END", 0)
     graph.node(BASE_ID + modifierId).setProperty("IS_EXTERNAL", false)
-    graph.node(BASE_ID + modifierId).setProperty("SIGNATURE", modifierName)
-    graph.node(BASE_ID + modifierId).setProperty("NAME", modifierName)
+    graph.node(BASE_ID + modifierId).setProperty("SIGNATURE", modifierInstanceName)
+    graph.node(BASE_ID + modifierId).setProperty("NAME", modifierInstanceName)
     graph.node(BASE_ID + modifierId).setProperty("AST_PARENT_TYPE", "") // I'm leaving these two empty because (contrary to the documentation)
     graph.node(BASE_ID + modifierId).setProperty("AST_PARENT_FULL_NAME", "") // they always seem to be left empty.
     graph.node(BASE_ID + modifierId).setProperty("ORDER", -1)
-    graph.node(BASE_ID + modifierId).setProperty("CODE", modifierName)
-    graph.node(BASE_ID + modifierId).setProperty("FULL_NAME", modifierName)
+    graph.node(BASE_ID + modifierId).setProperty("CODE", modifierInstanceName)
+    graph.node(BASE_ID + modifierId).setProperty("FULL_NAME", modifierInstanceName)
     graph.node(BASE_ID + modifierId).setProperty("LINE_NUMBER_END", 0)
     graph.node(BASE_ID + modifierId).setProperty("FILENAME", "")
 
