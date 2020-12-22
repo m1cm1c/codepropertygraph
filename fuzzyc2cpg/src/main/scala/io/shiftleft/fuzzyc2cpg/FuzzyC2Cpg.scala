@@ -533,7 +533,7 @@ class FuzzyC2Cpg() {
     }
 
     if(statementName.equals("MemberAccess")) {
-      val memberAccessId = memberAccessHelper(graph, BASE_ID, statement.asInstanceOf[Map[String, Object]])
+      val memberAccessId = memberAccessHelper(graph, BASE_ID, statement.asInstanceOf[Map[String, Object]], placeholderReplacement, placeholderArguments)
       return Array(memberAccessId)
     }
 
@@ -775,8 +775,11 @@ class FuzzyC2Cpg() {
     }
 
     if(statementName.equals("IndexAccess")) {
-      val arrayName = statementChildren(0)("attributes").asInstanceOf[Map[String, Object]]("value").toString
-      val indexAccessed = statementChildren(1)("attributes").asInstanceOf[Map[String, Object]]("value").toString
+      val leftId = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+      val rightId = registerStatement(graph, statementChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+
+      val arrayName = graph.node(BASE_ID + leftId).property("CODE").toString
+      val indexAccessed = graph.node(BASE_ID + rightId).property("CODE").toString
 
       val code = arrayName + "[" + indexAccessed + "]"
 
@@ -793,9 +796,6 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + statementId).setProperty("NAME", "<operator>.assignment")
       order += 1
-
-      val leftId = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
-      val rightId = registerStatement(graph, statementChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
       graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + leftId))
       graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + rightId))
@@ -868,6 +868,10 @@ class FuzzyC2Cpg() {
         }
 
         if(operationName.equals("UnaryOperation")) {
+          return registerStatement(graph, operation, order, BASE_ID, placeholderReplacement, placeholderArguments)
+        }
+
+        if(operationName.equals("Identifier")) {
           return registerStatement(graph, operation, order, BASE_ID, placeholderReplacement, placeholderArguments)
         }
 
@@ -984,7 +988,7 @@ class FuzzyC2Cpg() {
               graph.node(BASE_ID + statementIdI).setProperty("NAME", "<operator>.assignment")
               order += 1
 
-              memberAccessHelper(graph, BASE_ID, memberAccess)
+              memberAccessHelper(graph, BASE_ID, memberAccess, placeholderReplacement, placeholderArguments)
 
               graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
               graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementRightId))
@@ -1069,14 +1073,15 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementLeftId).addEdge("REF", referencedVariableNode)
   }
 
-  def memberAccessHelper(graph: Graph, BASE_ID: Long, memberAccess: Map[String, Object]): Int = {
+  def memberAccessHelper(graph: Graph, BASE_ID: Long, memberAccess: Map[String, Object], placeholderReplacement: String, placeholderArguments: List[Map[String, Object]]): Int = {
     val memberAccessAttributes = memberAccess("attributes").asInstanceOf[Map[String, Object]]
     val memberAccessId = memberAccess("id").toString.toInt
     val memberName = memberAccessAttributes("member_name").toString
     val struct = memberAccess("children").asInstanceOf[List[Map[String, Object]]](0)
     val structAttributes = struct("attributes").asInstanceOf[Map[String, Object]]
-    val structName = structAttributes("value").toString
-    val structId = struct("id").toString.toInt
+
+    val structId = registerStatement(graph, struct, 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+    val structName = graph.node(BASE_ID + structId).property("CODE")
     val completeAccessCode = structName + "." + memberName
 
     graph.addNode(BASE_ID + memberAccessId, "CALL")
@@ -1092,15 +1097,6 @@ class FuzzyC2Cpg() {
     graph.node(BASE_ID + memberAccessId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
     graph.node(BASE_ID + memberAccessId).setProperty("NAME", "<operator>.fieldAccess")
 
-    graph.addNode(BASE_ID + structId, "IDENTIFIER")
-    graph.node(BASE_ID + structId).setProperty("ORDER", 1)
-    graph.node(BASE_ID + structId).setProperty("ARGUMENT_INDEX", 1)
-    graph.node(BASE_ID + structId).setProperty("CODE", structName)
-    graph.node(BASE_ID + structId).setProperty("COLUMN_NUMBER", 0)
-    graph.node(BASE_ID + structId).setProperty("TYPE_FULL_NAME", "ANY")
-    graph.node(BASE_ID + structId).setProperty("LINE_NUMBER", 0)
-    graph.node(BASE_ID + structId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-    graph.node(BASE_ID + structId).setProperty("NAME", structName)
     // TODO: could make use of structAttributes("referencedDeclaration").toString.toInt for a ref edge
 
     graph.addNode(2*BASE_ID + structId, "FIELD_IDENTIFIER")
