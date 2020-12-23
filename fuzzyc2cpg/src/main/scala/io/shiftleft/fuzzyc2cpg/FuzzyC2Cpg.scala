@@ -1309,6 +1309,8 @@ class FuzzyC2Cpg() {
           thing.values.asInstanceOf[Map[String, Object]]("name").equals("ContractDefinition")
         })
 
+      var modifierDefinitions = List[Map[String, Object]]()
+
       for(contract <- contracts) {
         val contractLevelElements = contract.findField((jfield) => {
           jfield._1.equals("children")
@@ -1334,7 +1336,6 @@ class FuzzyC2Cpg() {
         })
 
         // Collect modifier definitions.
-        var modifierDefinitions = List[Map[String, Object]]()
         contractLevelElements.foreach(wrappedContractLevelElement => {
           val name = wrappedContractLevelElement.findField(jfield => {
             jfield._1.equals("name")
@@ -1347,6 +1348,13 @@ class FuzzyC2Cpg() {
             case _ => {}
           }
         })
+      }
+
+      for(contract <- contracts) {
+        val contractLevelElements = contract.findField((jfield) => {
+          jfield._1.equals("children")
+        }).get._2
+          .children
 
         contractLevelElements.foreach(wrappedContractLevelElement => {
           val name = wrappedContractLevelElement.findField(jfield => {
