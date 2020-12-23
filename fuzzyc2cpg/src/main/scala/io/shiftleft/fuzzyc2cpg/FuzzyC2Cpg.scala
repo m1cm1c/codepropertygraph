@@ -13,9 +13,10 @@ import io.shiftleft.x2cpg.SourceFiles
 import overflowdb.{Config, Graph, Node}
 import org.json4s._
 import org.json4s.native.JsonMethods._
-import scala.io.Source
 
+import scala.io.Source
 import scala.collection.mutable.ListBuffer
+import scala.sys.env
 import scala.util.control.NonFatal
 
 case class Global(usedTypes: ConcurrentHashMap[String, Boolean] = new ConcurrentHashMap[String, Boolean]())
@@ -1295,7 +1296,9 @@ class FuzzyC2Cpg() {
 
         graph.node(1000100).addEdge("AST", graph.node(1000101))
 
-        val fileContents = Source.fromFile("/home/christoph/.applications/codepropertygraph/solcAsts/ast24.json").getLines.mkString
+        val astJsonFilePath = sys.env("AST_JSON_FILE_PATH")
+        println(astJsonFilePath)
+        val fileContents = Source.fromFile(astJsonFilePath).getLines.mkString
         val originalAst = parse(fileContents)
 
         /*childrenOpt match {
