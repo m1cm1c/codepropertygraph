@@ -519,23 +519,6 @@ class FuzzyC2Cpg() {
       return Array(statementId)
     }
 
-    val statementChildren = statementMap("children").asInstanceOf[List[Map[String, Object]]]
-    println("Number of statement children: " + statementChildren.length)
-
-    // The CPG AST does not seem to know about tuple expressions,
-    // so their children get passed right through.
-    if(statementName.equals("TupleExpression")) {
-      println("Processing tuple expression")
-      require(statementChildren.length == 1)
-
-      return registerStatement(graph, statementChildren(0), order, BASE_ID, placeholderReplacement, placeholderArguments)
-    }
-
-    if(statementName.equals("MemberAccess")) {
-      val memberAccessId = memberAccessHelper(graph, BASE_ID, statement.asInstanceOf[Map[String, Object]], placeholderReplacement, placeholderArguments)
-      return Array(memberAccessId)
-    }
-
     if(statementName.equals("Return")) {
       /*
       // Getting some code here isn't easy. We need to try a few options.
@@ -557,12 +540,36 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("CODE", code)
       graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
 
-      val idChild = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+      // The shared statementChildren variable definition cannot be used for return
+      // statements because return statements don't always have children.
+      if(statementMap.keys.exists(_.equals("children"))) {
+        val statementChildren = statementMap("children").asInstanceOf[List[Map[String, Object]]]
+        println("Number of statement children: " + statementChildren.length)
 
-      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idChild))
-      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + idChild))
+        val idChild = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+
+        graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idChild))
+        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + idChild))
+      }
 
       return Array(statementId)
+    }
+
+    val statementChildren = statementMap("children").asInstanceOf[List[Map[String, Object]]]
+    println("Number of statement children: " + statementChildren.length)
+
+    // The CPG AST does not seem to know about tuple expressions,
+    // so their children get passed right through.
+    if(statementName.equals("TupleExpression")) {
+      println("Processing tuple expression")
+      require(statementChildren.length == 1)
+
+      return registerStatement(graph, statementChildren(0), order, BASE_ID, placeholderReplacement, placeholderArguments)
+    }
+
+    if(statementName.equals("MemberAccess")) {
+      val memberAccessId = memberAccessHelper(graph, BASE_ID, statement.asInstanceOf[Map[String, Object]], placeholderReplacement, placeholderArguments)
+      return Array(memberAccessId)
     }
 
     if(!statementName.equals("ExpressionStatement") && !statementName.equals("Block")
