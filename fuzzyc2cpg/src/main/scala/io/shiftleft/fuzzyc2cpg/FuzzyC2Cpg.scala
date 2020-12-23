@@ -562,7 +562,8 @@ class FuzzyC2Cpg() {
     }
 
     if(!statementName.equals("ExpressionStatement") && !statementName.equals("Block")
-      && !statementName.equals("IfStatement") && !statementName.equals("WhileStatement")
+      && !statementName.equals("IfStatement") && !statementName.equals("Conditional")
+      && !statementName.equals("WhileStatement")
       && !statementName.equals("DoWhileStatement") && !statementName.equals("ForStatement")
       && !statementName.equals("BinaryOperation") && !statementName.equals("UnaryOperation")
       && !statementName.equals("FunctionCall") && !statementName.equals("VariableDeclarationStatement")
@@ -714,7 +715,8 @@ class FuzzyC2Cpg() {
     val operationName = operation("name").toString
     val operationAttributes = operation("attributes").asInstanceOf[Map[String, Object]]
 
-    if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")
+    if(statementName.equals("IfStatement") || statementName.equals("Conditional")
+      || statementName.equals("WhileStatement")
       || statementName.equals("DoWhileStatement") || statementName.equals("ForStatement")) {
       graph.addNode(BASE_ID + statementId, "CONTROL_STRUCTURE")
       graph.node(BASE_ID + statementId).setProperty("PARSER_TYPE_NAME", statementName)
@@ -724,8 +726,8 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("CODE", "")
       graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
 
-      if(statementName.equals("IfStatement") || statementName.equals("WhileStatement")
-        || statementName.equals("DoWhileStatement")) {
+      if(statementName.equals("IfStatement") || statementName.equals("Conditional")
+        || statementName.equals("WhileStatement") || statementName.equals("DoWhileStatement")) {
         val conditionId = registerStatement(graph, operation, 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
         // There never are several action IDs. This is because in Solidity,
         // variable delarations in an if's or loop's body is illegal unless that
