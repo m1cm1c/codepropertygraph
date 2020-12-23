@@ -562,9 +562,14 @@ class FuzzyC2Cpg() {
     // so their children get passed right through.
     if(statementName.equals("TupleExpression")) {
       println("Processing tuple expression")
-      require(statementChildren.length == 1)
 
-      return registerStatement(graph, statementChildren(0), order, BASE_ID, placeholderReplacement, placeholderArguments)
+      var statementIds = List[Long]()
+      for(statementChild <- statementChildren) {
+        val innerStatementIds = registerStatement(graph, statementChild, order, BASE_ID, placeholderReplacement, placeholderArguments)
+        statementIds = statementIds.concat(innerStatementIds)
+      }
+
+      return statementIds.toArray
     }
 
     if(statementName.equals("MemberAccess")) {
