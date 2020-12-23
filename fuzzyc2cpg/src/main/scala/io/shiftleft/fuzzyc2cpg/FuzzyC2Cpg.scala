@@ -1450,6 +1450,7 @@ object FuzzyC2Cpg {
 
         } catch {
           case NonFatal(ex) =>
+            ex.printStackTrace()
             logger.error("Failed to generate CPG.", ex)
             System.exit(1)
         }
