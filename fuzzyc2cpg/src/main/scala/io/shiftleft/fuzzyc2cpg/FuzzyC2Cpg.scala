@@ -499,9 +499,12 @@ class FuzzyC2Cpg() {
       return Array(statementId)
     }
 
-    if(statementName.equals("Literal") || statementName.equals("Identifier")) {
+    if(statementName.equals("Literal") || statementName.equals("Identifier")
+    || statementName.equals("ElementaryTypeNameExpression")) {
       val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
 
+      // ElementaryTypeNameExpressions are treated as literals for lack of a
+      // better alternative.
       graph.addNode(BASE_ID + statementId, (if (statementName.equals("Identifier")) "IDENTIFIER" else "LITERAL"))
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
       graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
