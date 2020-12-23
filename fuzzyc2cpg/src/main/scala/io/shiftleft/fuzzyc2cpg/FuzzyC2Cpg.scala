@@ -390,7 +390,11 @@ class FuzzyC2Cpg() {
 
     graph.node(1000101).addEdge("AST", graph.node(BASE_ID + modifierId))
 
-    val parameterList = modifierChildren(0).asInstanceOf[Map[String, List[Object]]]
+    var offset = 0
+    if(modifierChildren(0)("name").toString.equals("StructuredDocumentation"))
+      offset += 1
+
+    val parameterList = modifierChildren(offset+0).asInstanceOf[Map[String, List[Object]]]
     var order = 1
     for(attributeSpecificObject <- parameterList("children")) {
       val attributeSpecificMap = attributeSpecificObject.asInstanceOf[Map[String, Object]]
@@ -414,7 +418,7 @@ class FuzzyC2Cpg() {
       order += 1
     }
 
-    registerBlock(graph, modifierChildren(1), 1, BASE_ID, placeholderReplacement, modifierInvocationArguments)
+    registerBlock(graph, modifierChildren(offset+1), 1, BASE_ID, placeholderReplacement, modifierInvocationArguments)
 
     // TODO: IS A RETURN VALUE REQUIRED?
 
