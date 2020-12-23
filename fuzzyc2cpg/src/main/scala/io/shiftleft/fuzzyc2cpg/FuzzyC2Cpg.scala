@@ -707,7 +707,7 @@ class FuzzyC2Cpg() {
         // The reason that we need more nodes is that the CPG AST requires you to link to an Identifier Node which in turn links to the Local node. You cannot link
         // to a Local node directly via an argument edge.
         // Update: Need even more IDs. => 4*BASE_ID + statementRightId
-        assignmentHelper(graph, BASE_ID, 4*BASE_ID + statementRightId, order, assignmentLeftId, variableName, localId, statementRightId)
+        assignmentHelper(graph, BASE_ID, 4*BASE_ID + statementRightId, order, assignmentLeftId, variableName, getAssignmentOperatorName("="), localId, statementRightId)
         order += 1
         returnIds = returnIds.appended(4*BASE_ID + statementRightId)
       }
@@ -880,7 +880,7 @@ class FuzzyC2Cpg() {
 
         if (operationName.equals("Assignment")) {
           println("Handling Assignment")
-          require(operationAttributes("operator").toString.equals("="))
+          val operatorName = getAssignmentOperatorName(operationAttributes("operator").toString)
           require(operationChildren.length == 2)
 
           var statementIds = List[Long]()
@@ -963,7 +963,7 @@ class FuzzyC2Cpg() {
               val statementLeftVariableName = statementLeftAttributes("value").toString
               val statementLeftReferencedId = statementLeftAttributes("referencedDeclaration").toString.toInt
               println("entering assignment helper")
-              assignmentHelper(graph, BASE_ID, statementIdI, order, statementLeftId, statementLeftVariableName, statementLeftReferencedId, statementRightId)
+              assignmentHelper(graph, BASE_ID, statementIdI, order, statementLeftId, statementLeftVariableName, operatorName, statementLeftReferencedId, statementRightId)
               order += 1
               println("exited assignment helper")
             } else if (statementLeftKind.equals("MemberAccess")) {
@@ -980,13 +980,13 @@ class FuzzyC2Cpg() {
               graph.node(BASE_ID + statementIdI).setProperty("ARGUMENT_INDEX", order)
               graph.node(BASE_ID + statementIdI).setProperty("CODE", statementLeftVariableName + " = (...)")
               graph.node(BASE_ID + statementIdI).setProperty("COLUMN_NUMBER", 0)
-              graph.node(BASE_ID + statementIdI).setProperty("METHOD_FULL_NAME", "<operator>.assignment")
+              graph.node(BASE_ID + statementIdI).setProperty("METHOD_FULL_NAME", operatorName)
               graph.node(BASE_ID + statementIdI).setProperty("TYPE_FULL_NAME", "ANY")
               graph.node(BASE_ID + statementIdI).setProperty("LINE_NUMBER", 0)
               graph.node(BASE_ID + statementIdI).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
               graph.node(BASE_ID + statementIdI).setProperty("SIGNATURE", "TODO assignment signature")
               graph.node(BASE_ID + statementIdI).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-              graph.node(BASE_ID + statementIdI).setProperty("NAME", "<operator>.assignment")
+              graph.node(BASE_ID + statementIdI).setProperty("NAME", operatorName)
               order += 1
 
               memberAccessHelper(graph, BASE_ID, memberAccess, placeholderReplacement, placeholderArguments)
@@ -1008,13 +1008,13 @@ class FuzzyC2Cpg() {
               graph.node(BASE_ID + statementIdI).setProperty("ARGUMENT_INDEX", order)
               graph.node(BASE_ID + statementIdI).setProperty("CODE", code)
               graph.node(BASE_ID + statementIdI).setProperty("COLUMN_NUMBER", 0)
-              graph.node(BASE_ID + statementIdI).setProperty("METHOD_FULL_NAME", "<operator>.assignment")
+              graph.node(BASE_ID + statementIdI).setProperty("METHOD_FULL_NAME", operatorName)
               graph.node(BASE_ID + statementIdI).setProperty("TYPE_FULL_NAME", "ANY")
               graph.node(BASE_ID + statementIdI).setProperty("LINE_NUMBER", 0)
               graph.node(BASE_ID + statementIdI).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
               graph.node(BASE_ID + statementIdI).setProperty("SIGNATURE", "TODO assignment signature")
               graph.node(BASE_ID + statementIdI).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-              graph.node(BASE_ID + statementIdI).setProperty("NAME", "<operator>.assignment")
+              graph.node(BASE_ID + statementIdI).setProperty("NAME", operatorName)
               order += 1
 
               graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
@@ -1037,19 +1037,19 @@ class FuzzyC2Cpg() {
   }
 
   // TODO: optimize away using even more recursion
-  def assignmentHelper(graph: Graph, BASE_ID: Long, operationId: Long, order: Int, statementLeftId: Long, statementLeftVariableName: String, statementLeftReferencedId: Long, statementRightId: Long): Unit = {
+  def assignmentHelper(graph: Graph, BASE_ID: Long, operationId: Long, order: Int, statementLeftId: Long, statementLeftVariableName: String, operatorName: String, statementLeftReferencedId: Long, statementRightId: Long): Unit = {
     graph.addNode(BASE_ID + operationId, "CALL")
     graph.node(BASE_ID + operationId).setProperty("ORDER", order)
     graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", order)
     graph.node(BASE_ID + operationId).setProperty("CODE", statementLeftVariableName + " = (...)")
     graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
-    graph.node(BASE_ID + operationId).setProperty("METHOD_FULL_NAME", "<operator>.assignment")
+    graph.node(BASE_ID + operationId).setProperty("METHOD_FULL_NAME", operatorName)
     graph.node(BASE_ID + operationId).setProperty("TYPE_FULL_NAME", "ANY")
     graph.node(BASE_ID + operationId).setProperty("LINE_NUMBER", 0)
     graph.node(BASE_ID + operationId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
     graph.node(BASE_ID + operationId).setProperty("SIGNATURE", "TODO assignment signature")
     graph.node(BASE_ID + operationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-    graph.node(BASE_ID + operationId).setProperty("NAME", "<operator>.assignment")
+    graph.node(BASE_ID + operationId).setProperty("NAME", operatorName)
 
     val referencedVariableNode = graph.node(BASE_ID + statementLeftReferencedId)
     val referencedVariableDataType = if(referencedVariableNode == null) "ERROR" else referencedVariableNode.property("TYPE_FULL_NAME")
@@ -1152,7 +1152,7 @@ class FuzzyC2Cpg() {
       val placeholderReplacement = ""
       val placeholderArguments = List()
       val statementRightId = registerStatement(graph, children(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
-      assignmentHelper(graph, BASE_ID, 4 * BASE_ID + statementRightId, order, declarationOperationId + 1 * BASE_ID, variableName, declarationOperationId, statementRightId)
+      assignmentHelper(graph, BASE_ID, 4 * BASE_ID + statementRightId, order, declarationOperationId + 1 * BASE_ID, variableName, getAssignmentOperatorName("="), declarationOperationId, statementRightId)
 
       graph.node(1000101).addEdge("AST", graph.node(BASE_ID + 4 * BASE_ID + statementRightId))
     }
@@ -1242,6 +1242,18 @@ class FuzzyC2Cpg() {
         case "!" => "<operator>.logicalNot"
         case _ => "<operator>.ERROR"
       }
+  }
+
+
+  def getAssignmentOperatorName(symbol: String): String = {
+    symbol match {
+      case "+=" => "<operator>.assignmentPlus"
+      case "-=" => "<operator>.assignmentMinus"
+      case "*=" => "<operator>.assignmentMultiplication"
+      case "/=" => "<operator>.assignmentDivision"
+      case "=" => "<operator>.assignment"
+      case _ => "<operator>.ERROR"
+    }
   }
 
   def runAndOutput(sourcePaths: Set[String],
