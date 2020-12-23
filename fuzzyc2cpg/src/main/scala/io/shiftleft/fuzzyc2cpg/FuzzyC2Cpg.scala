@@ -543,7 +543,7 @@ class FuzzyC2Cpg() {
       // The shared statementChildren variable definition cannot be used for return
       // statements because return statements don't always have children.
       if(statementMap.keys.exists(_.equals("children"))) {
-        val statementChildren = statementMap("children").asInstanceOf[List[Map[String, Object]]]
+        val statementChildren = statementMap("children").asInstanceOf[List[Map[String, Object]]].filter(!_("name").equals("StructuredDocumentation"))
         println("Number of statement children: " + statementChildren.length)
 
         val idChild = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
@@ -555,7 +555,7 @@ class FuzzyC2Cpg() {
       return Array(statementId)
     }
 
-    val statementChildren = statementMap("children").asInstanceOf[List[Map[String, Object]]]
+    val statementChildren = statementMap("children").asInstanceOf[List[Map[String, Object]]].filter(!_("name").equals("StructuredDocumentation"))
     println("Number of statement children: " + statementChildren.length)
 
     // The CPG AST does not seem to know about tuple expressions,
@@ -1141,7 +1141,7 @@ class FuzzyC2Cpg() {
     // variable definitions cannot occur outside of a function.
     var order = -1
     val declarationOperationId = getFieldInt(wrappedVariableDeclaration, "id")
-    val children = getFieldList(wrappedVariableDeclaration, "children")
+    val children = getFieldList(wrappedVariableDeclaration, "children").asInstanceOf[List[Map[String, Object]]].filter(!_("name").equals("StructuredDocumentation"))
     require(children.length == 1 || children.length == 2)
     val variableAttributes = getField(wrappedVariableDeclaration, "attributes").asInstanceOf[Map[String, Object]]
     val variableDataType = variableAttributes("type").toString
