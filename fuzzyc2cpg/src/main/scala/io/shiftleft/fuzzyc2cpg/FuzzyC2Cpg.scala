@@ -840,8 +840,6 @@ class FuzzyC2Cpg() {
     }
 
     val operation = statementChildren(0)
-    val operationName = operation("name").toString
-    val operationAttributes = operation("attributes").asInstanceOf[Map[String, Object]]
 
     if(statementName.equals("IfStatement") || statementName.equals("Conditional")
       || statementName.equals("WhileStatement")
@@ -898,6 +896,9 @@ class FuzzyC2Cpg() {
       }
       return Array(statementId)
     }
+
+    val operationName = operation("name").toString
+    val operationAttributes = operation("attributes").asInstanceOf[Map[String, Object]]
 
     if(statementName.equals("IndexAccess")) {
       val leftId = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
