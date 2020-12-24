@@ -727,11 +727,11 @@ class FuzzyC2Cpg() {
       var returnIds = List[Long]()
 
       // There are 3 cases depending on the number of children:
-      // 1 child:    A VariableDeclaration.
-      // 2 children: The first child is a VariableDeclaration.
-      //             The second child is what that variable is assigned.
-      // 3 children: The first n-1 children are VariableDeclarations.
-      //             The last child's children are what the variables are assigned.
+      // 1 child:     A VariableDeclaration.
+      // 2 children:  The first child is a VariableDeclaration.
+      //              The second child is what that variable is assigned.
+      // 3+ children: The first n-1 children are VariableDeclarations.
+      //              The last child's children are what the variables are assigned.
       require(statementChildren.length > 0)
       if(statementChildren.length == 1) {
         registerVariableDeclaration(statementChildren(0))
@@ -741,12 +741,15 @@ class FuzzyC2Cpg() {
         registerVariableAssignment(variableAttributes, assignmentLeftId, localId, statementRightId)
       } else if(statementChildren.length >= 3) {
         val variableDeclarationOperations = statementChildren.slice(0, statementChildren.length-1)
-        val statementsRight = statementChildren(statementChildren.length-1)("children").asInstanceOf[List[Map[String, Object]]]
+        val isFunctionCall = statementChildren(statementChildren.length-1)("name").toString.equals("FunctionCall")
+        val statementsRight = if(!isFunctionCall)
+          statementChildren(statementChildren.length-1)("children").asInstanceOf[List[Map[String, Object]]]
+        else
+          List(statementChildren(statementChildren.length-1))
 
         // In the case of a function call, there only is one statementRight.
         // This one statementRight needs to be used for all statementsLeft.
-        require(variableDeclarationOperations.length == statementsRight.length
-        || statementsRight.length == 1)
+        require(variableDeclarationOperations.length == statementsRight.length || isFunctionCall)
         val statementsRightIds = if(statementsRight.length == 1) {
           val statementRightId = registerStatement(graph, statementsRight(0), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
           List.fill(variableDeclarationOperations.length)(statementRightId)
