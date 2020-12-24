@@ -753,7 +753,8 @@ class FuzzyC2Cpg() {
         registerVariableAssignment(variableAttributes, assignmentLeftId, localId, statementRightId)
       } else if(statementChildren.length >= 3) {
         val variableDeclarationOperations = statementChildren.slice(0, statementChildren.length-1)
-        val isFunctionCall = statementChildren(statementChildren.length-1)("name").toString.equals("FunctionCall")
+        val rightName = statementChildren(statementChildren.length-1)("name").toString
+        val isFunctionCall = rightName.equals("FunctionCall") || rightName.equals("Conditional")
         val statementsRight = if(!isFunctionCall)
           statementChildren(statementChildren.length-1)("children").asInstanceOf[List[Map[String, Object]]]
         else
@@ -1101,7 +1102,8 @@ class FuzzyC2Cpg() {
             // Create a temporary variable for each value on the right that is
             // then assigned that value.
             // TODO: handle the case that this is not a tuple but instead a function call
-            if (!operationChildren(1).asInstanceOf[Map[String, Object]]("name").toString.equals("FunctionCall")) {
+            val rightName = operationChildren(1).asInstanceOf[Map[String, Object]]("name").toString
+            if (!rightName.equals("FunctionCall") && !rightName.equals("Conditional")) {
               // Regular tuple case
               statementsRight = operationChildren(1).asInstanceOf[Map[String, List[Map[String, Object]]]]("children")
               var tupleElementNumber = 0
