@@ -528,6 +528,15 @@ class FuzzyC2Cpg() {
       return Array(statementId)
     }
 
+    // FunctionCallOptions are not really supported.
+    // I'm merely passing on the last options value.
+    if(statementName.equals("FunctionCallOptions")) {
+      val statementChildren = statementMap("children").asInstanceOf[List[Map[String, Object]]]
+      val consideredChild = statementChildren(statementChildren.length - 1)
+      val consideredChildId = registerStatement(graph, consideredChild, 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+      return Array(consideredChildId)
+    }
+
     if(statementName.equals("Return")) {
       /*
       // Getting some code here isn't easy. We need to try a few options.
