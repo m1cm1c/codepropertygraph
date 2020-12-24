@@ -495,9 +495,11 @@ class FuzzyC2Cpg() {
 
       var argumentNumber = 1
       for(argumentComponent <- placeholderArguments) {
-        val argumentId = registerStatement(graph, argumentComponent, argumentNumber, BASE_ID, placeholderReplacement, placeholderArguments)(0)
-        graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + argumentId))
-        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + argumentId))
+        // The BASE_ID needs to be adapted to support multiple occurrences of PlaceholderStatement
+        // in the same modifier. Otherwise, the same vertices would be used twice.
+        val argumentId = registerStatement(graph, argumentComponent, argumentNumber, BASE_ID + REAL_BASE_ID*statementId, placeholderReplacement, placeholderArguments)(0)
+        graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + REAL_BASE_ID*statementId + argumentId))
+        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + REAL_BASE_ID*statementId + argumentId))
         argumentNumber += 1
       }
 
