@@ -1343,7 +1343,7 @@ class FuzzyC2Cpg() {
     // variable definitions cannot occur outside of a function.
     var order = -1
     val declarationOperationId = getFieldInt(wrappedVariableDeclaration, "id")
-    val children = getFieldList(wrappedVariableDeclaration, "children").asInstanceOf[List[Map[String, Object]]].filter(!_("name").equals("StructuredDocumentation"))
+    val children = getFieldList(wrappedVariableDeclaration, "children").asInstanceOf[List[Map[String, Object]]].filter(child => !child("name").equals("StructuredDocumentation") && !child("name").equals("OverrideSpecifier"))
     require(children.length == 1 || children.length == 2)
     val variableAttributes = getField(wrappedVariableDeclaration, "attributes").asInstanceOf[Map[String, Object]]
     val variableDataType = variableAttributes("type").toString
