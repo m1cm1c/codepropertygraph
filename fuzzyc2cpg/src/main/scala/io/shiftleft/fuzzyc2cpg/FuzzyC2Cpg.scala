@@ -533,10 +533,10 @@ class FuzzyC2Cpg() {
       // better alternative.
       // ElementaryTypeNameExpressions don't always have the attribute "value".
       // This seems to be the case starting with Solidity 6.
-      val code = if(statementAttributes.keys.exists(_.equals("value"))) {
+      val code = if(statementAttributes.keys.exists(_.equals("value")) || statementAttributes.keys.exists(_.equals("hexvalue"))) {
         // Solidity 6 has a thing where hex values can be described like "hex'ff'",
         // in which case attribute "value" is null.
-        if(statementAttributes("value") != null)
+        if(statementAttributes.keys.exists(_.equals("value")) && statementAttributes("value") != null)
           statementAttributes("value").toString
         else
           "hex'" + statementAttributes("hexvalue").toString + "'"
@@ -948,6 +948,9 @@ class FuzzyC2Cpg() {
 
           currentChildNumber += 1
         }
+        println("see below")
+        println(statementId)
+        println(statementChildren.length)
         val actionId = registerStatement(graph, statementChildren(currentChildNumber), currentChildNumber, BASE_ID, placeholderReplacement, placeholderArguments)(0)
         graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + actionId))
         currentChildNumber += 1
