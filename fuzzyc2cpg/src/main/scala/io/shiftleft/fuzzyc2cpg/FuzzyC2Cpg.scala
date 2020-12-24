@@ -238,26 +238,31 @@ class FuzzyC2Cpg() {
     // Deal with function return values.
     order += 1
     val returnValuesList = returnValuesListComponent.values.asInstanceOf[Map[String, List[Object]]]
+    // The CPG does not support multiple METHOD_RETURN nodes for some reason.
+    var firstIteration = true
     for(attributeSpecificObject <- returnValuesList("children")) {
-      val attributeSpecificMap = attributeSpecificObject.asInstanceOf[Map[String, Object]]
-      val returnValueId = attributeSpecificMap("id").toString.toInt
-      val attributeMap = attributeSpecificMap("attributes").asInstanceOf[Map[String, Object]]
-      val returnValueName = attributeMap("name").toString
-      val returnValueType = attributeMap("type").toString
+      if(firstIteration) {
+        val attributeSpecificMap = attributeSpecificObject.asInstanceOf[Map[String, Object]]
+        val returnValueId = attributeSpecificMap("id").toString.toInt
+        val attributeMap = attributeSpecificMap("attributes").asInstanceOf[Map[String, Object]]
+        val returnValueName = attributeMap("name").toString
+        val returnValueType = attributeMap("type").toString
 
-      graph.addNode(BASE_ID + returnValueId, "METHOD_RETURN")
-      graph.node(BASE_ID + returnValueId).setProperty("ORDER", order)
-      graph.node(BASE_ID + returnValueId).setProperty("CODE", returnValueType + " " + returnValueName)
-      graph.node(BASE_ID + returnValueId).setProperty("COLUMN_NUMBER", 0)
-      graph.node(BASE_ID + returnValueId).setProperty("LINE_NUMBER", 0)
-      graph.node(BASE_ID + returnValueId).setProperty("TYPE_FULL_NAME", returnValueType)
-      graph.node(BASE_ID + returnValueId).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
-      graph.node(BASE_ID + returnValueId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List()) // Is not part of the original CPG AST for some reason. But including it doesn't seem to break anything, so I included it so it's more similar to other kinds of nodes.
-      graph.node(BASE_ID + returnValueId).setProperty("NAME", returnValueName) // Is not part of the original CPG AST because in C, return values cannot be named.
+        graph.addNode(BASE_ID + returnValueId, "METHOD_RETURN")
+        graph.node(BASE_ID + returnValueId).setProperty("ORDER", order)
+        graph.node(BASE_ID + returnValueId).setProperty("CODE", returnValueType + " " + returnValueName)
+        graph.node(BASE_ID + returnValueId).setProperty("COLUMN_NUMBER", 0)
+        graph.node(BASE_ID + returnValueId).setProperty("LINE_NUMBER", 0)
+        graph.node(BASE_ID + returnValueId).setProperty("TYPE_FULL_NAME", returnValueType)
+        graph.node(BASE_ID + returnValueId).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
+        graph.node(BASE_ID + returnValueId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List()) // Is not part of the original CPG AST for some reason. But including it doesn't seem to break anything, so I included it so it's more similar to other kinds of nodes.
+        graph.node(BASE_ID + returnValueId).setProperty("NAME", returnValueName) // Is not part of the original CPG AST because in C, return values cannot be named.
 
-      graph.node(BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + returnValueId))
+        graph.node(BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + returnValueId))
 
-      order += 1
+        order += 1
+        firstIteration = false
+      }
     }
   }
 
@@ -623,7 +628,7 @@ class FuzzyC2Cpg() {
       && !statementName.equals("DoWhileStatement") && !statementName.equals("ForStatement")
       && !statementName.equals("BinaryOperation") && !statementName.equals("UnaryOperation")
       && !statementName.equals("FunctionCall") && !statementName.equals("VariableDeclarationStatement")
-      && !statementName.equals("IndexAccess")) {
+      && !statementName.equals("IndexAccess") && !statementName.equals("Assignment")) {
       println("panic!!! unknown statement with statement name: " + statementName)
       return Array()
     }
@@ -715,15 +720,32 @@ class FuzzyC2Cpg() {
         registerVariableDeclaration(statementChildren(0))
       } else if(statementChildren.length == 2) {
         val (variableAttributes, assignmentLeftId, localId) = registerVariableDeclaration(statementChildren(0))
-        registerVariableAssignment(variableAttributes, assignmentLeftId, localId, statementChildren(1))
+        val statementRightId = registerStatement(graph, statementChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+        registerVariableAssignment(variableAttributes, assignmentLeftId, localId, statementRightId)
       } else if(statementChildren.length >= 3) {
         val variableDeclarationOperations = statementChildren.slice(0, statementChildren.length-1)
         val statementsRight = statementChildren(statementChildren.length-1)("children").asInstanceOf[List[Map[String, Object]]]
-        require(variableDeclarationOperations.length == statementsRight.length)
 
-        for(i <- 0 until statementsRight.length) {
-          val (variableAttributes, assignmentLeftId, localId) = registerVariableDeclaration(variableDeclarationOperations(i))
-          registerVariableAssignment(variableAttributes, assignmentLeftId, localId, statementsRight(i))
+        // In the case of a function call, there only is one statementRight.
+        // This one statementRight needs to be used for all statementsLeft.
+        require(variableDeclarationOperations.length == statementsRight.length
+        || statementsRight.length == 1)
+        val statementsRightIds = if(statementsRight.length == 1) {
+          val statementRightId = registerStatement(graph, statementsRight(0), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+          List.fill(variableDeclarationOperations.length)(statementRightId)
+        } else {
+          statementsRight.map(statementRight => registerStatement(graph, statementRight, 2, BASE_ID, placeholderReplacement, placeholderArguments)(0))
+        }
+
+        val assignmentsOverview = statementMap("attributes").asInstanceOf[Map[String, List[Long]]]("assignments")
+        var skipped = 0
+        for(i <- 0 until assignmentsOverview.length) {
+          if(assignmentsOverview(i) == null) {
+            skipped += 1
+          } else {
+            val (variableAttributes, assignmentLeftId, localId) = registerVariableDeclaration(variableDeclarationOperations(i-skipped))
+            registerVariableAssignment(variableAttributes, assignmentLeftId, localId, statementsRightIds(i-skipped))
+          }
         }
       } else {
         require(false)
@@ -751,11 +773,8 @@ class FuzzyC2Cpg() {
         (variableAttributes, assignmentLeftId, declarationOperationId)
       }
 
-      def registerVariableAssignment(variableAttributes: Map[String, Object], assignmentLeftId: Long, localId: Long, statementRight: Map[String, Object]) {
+      def registerVariableAssignment(variableAttributes: Map[String, Object], assignmentLeftId: Long, localId: Long, statementRightId: Long) {
         val variableName = variableAttributes("name").toString
-
-        val statementRightAttributes = statementRight("attributes").asInstanceOf[Map[String, Object]]
-        val statementRightId = registerStatement(graph, statementRight, 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
         val referencedVariableNode = graph.node(BASE_ID + assignmentLeftId)
         val referencedVariableDataType = if(referencedVariableNode == null) "ERROR" else referencedVariableNode.property("TYPE_FULL_NAME")
@@ -774,9 +793,9 @@ class FuzzyC2Cpg() {
         // The reason that we need more nodes is that the CPG AST requires you to link to an Identifier Node which in turn links to the Local node. You cannot link
         // to a Local node directly via an argument edge.
         // Update: Need even more IDs. => 4*BASE_ID + statementRightId
-        assignmentHelper(graph, BASE_ID, 4*BASE_ID + statementRightId, order, assignmentLeftId, variableName, getAssignmentOperatorName("="), localId, statementRightId)
+        assignmentHelper(graph, BASE_ID, 4*BASE_ID + assignmentLeftId, order, assignmentLeftId, variableName, getAssignmentOperatorName("="), localId, statementRightId)
         order += 1
-        returnIds = returnIds.appended(4*BASE_ID + statementRightId)
+        returnIds = returnIds.appended(4*BASE_ID + assignmentLeftId)
       }
 
       return returnIds.toArray
@@ -923,6 +942,90 @@ class FuzzyC2Cpg() {
       return Array(statementId)
     }
 
+    if(statementName.equals("Assignment")) {
+      println("Handling Assignment")
+      val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
+      val operatorName = getAssignmentOperatorName(statementAttributes("operator").toString)
+      val statementChildren = statementMap("children").asInstanceOf[List[Map[String, Object]]]
+      require(statementChildren.length == 2)
+
+      val statementIdI = statementId
+      val statementLeft = statementChildren(0)
+      val statementRight = statementChildren(1)
+
+      val statementLeftId = registerStatement(graph, statementLeft, 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+      val statementRightId = registerStatement(graph, statementRight, 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+
+      val statementLeftAttributes = statementLeft("attributes").asInstanceOf[Map[String, Object]]
+      val statementLeftKind = statementLeft("name").toString
+
+      println(statementIdI + ": " + statementLeftId + " <- " + statementRightId)
+
+      if (statementLeftKind.equals("Identifier")) {
+        val statementLeftVariableName = statementLeftAttributes("value").toString
+        val statementLeftReferencedId = statementLeftAttributes("referencedDeclaration").toString.toInt
+        println("entering assignment helper")
+        assignmentHelper(graph, BASE_ID, statementIdI, order, statementLeftId, statementLeftVariableName, operatorName, statementLeftReferencedId, statementRightId)
+        order += 1
+        println("exited assignment helper")
+      } else if (statementLeftKind.equals("MemberAccess")) {
+        val memberName = statementLeftAttributes("member_name").toString
+        val struct = statementLeft("children").asInstanceOf[List[Map[String, Object]]](0)
+        val structAttributes = struct("attributes").asInstanceOf[Map[String, Object]]
+        val structName = graph.node(BASE_ID + statementLeftId).property("CODE").toString
+        val structId = struct("id").toString.toInt
+        val statementLeftVariableName = structName + "." + memberName
+
+        graph.addNode(BASE_ID + statementIdI, "CALL")
+        graph.node(BASE_ID + statementIdI).setProperty("ORDER", order)
+        graph.node(BASE_ID + statementIdI).setProperty("ARGUMENT_INDEX", order)
+        graph.node(BASE_ID + statementIdI).setProperty("CODE", statementLeftVariableName + " = (...)")
+        graph.node(BASE_ID + statementIdI).setProperty("COLUMN_NUMBER", 0)
+        graph.node(BASE_ID + statementIdI).setProperty("METHOD_FULL_NAME", operatorName)
+        graph.node(BASE_ID + statementIdI).setProperty("TYPE_FULL_NAME", "ANY")
+        graph.node(BASE_ID + statementIdI).setProperty("LINE_NUMBER", 0)
+        graph.node(BASE_ID + statementIdI).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+        graph.node(BASE_ID + statementIdI).setProperty("SIGNATURE", "TODO assignment signature")
+        graph.node(BASE_ID + statementIdI).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+        graph.node(BASE_ID + statementIdI).setProperty("NAME", operatorName)
+        order += 1
+
+        graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
+        graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementRightId))
+        graph.node(BASE_ID + statementIdI).addEdge("AST", graph.node(BASE_ID + statementLeftId)) // This edge seems to be added somewhere else. But idk where, so I'm adding it another time.
+        graph.node(BASE_ID + statementIdI).addEdge("AST", graph.node(BASE_ID + statementRightId))
+      } else if(statementLeftKind.equals("IndexAccess")) {
+        val codeLeft = graph.node(BASE_ID + statementLeftId).property("CODE")
+        val codeRight = graph.node(BASE_ID + statementRightId).property("CODE")
+        val code = codeLeft + " = " + codeRight
+
+        graph.addNode(BASE_ID + statementIdI, "CALL")
+        graph.node(BASE_ID + statementIdI).setProperty("ORDER", order)
+        graph.node(BASE_ID + statementIdI).setProperty("ARGUMENT_INDEX", order)
+        graph.node(BASE_ID + statementIdI).setProperty("CODE", code)
+        graph.node(BASE_ID + statementIdI).setProperty("COLUMN_NUMBER", 0)
+        graph.node(BASE_ID + statementIdI).setProperty("METHOD_FULL_NAME", operatorName)
+        graph.node(BASE_ID + statementIdI).setProperty("TYPE_FULL_NAME", "ANY")
+        graph.node(BASE_ID + statementIdI).setProperty("LINE_NUMBER", 0)
+        graph.node(BASE_ID + statementIdI).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+        graph.node(BASE_ID + statementIdI).setProperty("SIGNATURE", "TODO assignment signature")
+        graph.node(BASE_ID + statementIdI).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+        graph.node(BASE_ID + statementIdI).setProperty("NAME", operatorName)
+        order += 1
+
+        graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
+        graph.node(BASE_ID + statementIdI).addEdge("ARGUMENT", graph.node(BASE_ID + statementRightId))
+        graph.node(BASE_ID + statementIdI).addEdge("AST", graph.node(BASE_ID + statementLeftId))
+        graph.node(BASE_ID + statementIdI).addEdge("AST", graph.node(BASE_ID + statementRightId))
+      } else {
+        println("Invalid left kind!")
+        println(statementLeftKind)
+        require(false)
+      }
+
+      return Array(statementId)
+    }
+
     statementName match {
       case "ExpressionStatement" => {
         println("Operation name: " + operationName)
@@ -947,6 +1050,7 @@ class FuzzyC2Cpg() {
 
         if (operationName.equals("Assignment")) {
           println("Handling Assignment")
+
           val operatorName = getAssignmentOperatorName(operationAttributes("operator").toString)
           require(operationChildren.length == 2)
 
@@ -955,6 +1059,8 @@ class FuzzyC2Cpg() {
           var statementsRight = List[Map[String, Object]]()
           var localVariablesIds = List[Long]()
 
+          var overrideStatementRightId = -1l
+
           if (!operationAttributes("type").equals("tuple()")) {
             statementIds = List(statementId)
             statementsLeft = List(operationChildren(0).asInstanceOf[Map[String, Object]])
@@ -962,64 +1068,85 @@ class FuzzyC2Cpg() {
           } else {
             // Create a temporary variable for each value on the right that is
             // then assigned that value.
-            statementsRight = operationChildren(1).asInstanceOf[Map[String, List[Map[String, Object]]]]("children")
+            // TODO: handle the case that this is not a tuple but instead a function call
+            if (!operationChildren(1).asInstanceOf[Map[String, Object]]("name").toString.equals("FunctionCall")) {
+              // Regular tuple case
+              statementsRight = operationChildren(1).asInstanceOf[Map[String, List[Map[String, Object]]]]("children")
+              var tupleElementNumber = 0
 
-            var tupleElementNumber = 0
-            for (statementRight <- statementsRight) {
-              val statementRightId = statementRight("id").toString.toInt
-              val variableDataType = statementRight("attributes").asInstanceOf[Map[String, Object]]("type").toString
-              val variableName = "tuple_element_" + tupleElementNumber
+              for (statementRight <- statementsRight) {
+                val statementRightId = statementRight("id").toString.toInt
+                val variableDataType = statementRight("attributes").asInstanceOf[Map[String, Object]]("type").toString
+                val variableName = "tuple_element_" + tupleElementNumber
 
-              graph.addNode(3 * BASE_ID + statementRightId, "LOCAL")
-              graph.node(3 * BASE_ID + statementRightId).setProperty("TYPE_FULL_NAME", variableDataType)
-              graph.node(3 * BASE_ID + statementRightId).setProperty("ORDER", order)
-              graph.node(3 * BASE_ID + statementRightId).setProperty("CODE", variableName)
-              graph.node(3 * BASE_ID + statementRightId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-              graph.node(3 * BASE_ID + statementRightId).setProperty("NAME", variableName)
-              order += 1
+                graph.addNode(3 * BASE_ID + statementRightId, "LOCAL")
+                graph.node(3 * BASE_ID + statementRightId).setProperty("TYPE_FULL_NAME", variableDataType)
+                graph.node(3 * BASE_ID + statementRightId).setProperty("ORDER", order)
+                graph.node(3 * BASE_ID + statementRightId).setProperty("CODE", variableName)
+                graph.node(3 * BASE_ID + statementRightId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+                graph.node(3 * BASE_ID + statementRightId).setProperty("NAME", variableName)
+                order += 1
 
-              // These statements are faked with referenced IDs shifted by 2*BASE_ID such that when
-              // BASE_ID is added later on to form the node IDs, the same offset as used above
-              // (3*BASE_ID) is reached.
-              var statementLeft = Map[String, Object]()
-              statementLeft += ("id" -> (4 * BASE_ID + statementRightId).asInstanceOf[Object])
-              statementLeft += ("name" -> "Identifier")
-              var statementLeftAttributes = Map[String, Object]()
-              statementLeftAttributes += ("type" -> variableDataType)
-              statementLeftAttributes += ("value" -> variableName)
-              val localVariableId = 2 * BASE_ID + statementRightId
-              localVariablesIds = localVariablesIds.appended(localVariableId)
-              statementLeftAttributes += ("referencedDeclaration" -> localVariableId.asInstanceOf[Object])
-              statementLeft += ("attributes" -> statementLeftAttributes)
+                // These statements are faked with referenced IDs shifted by 2*BASE_ID such that when
+                // BASE_ID is added later on to form the node IDs, the same offset as used above
+                // (3*BASE_ID) is reached.
+                var statementLeft = Map[String, Object]()
+                statementLeft += ("id" -> (4 * BASE_ID + statementRightId).asInstanceOf[Object])
+                statementLeft += ("name" -> "Identifier")
+                var statementLeftAttributes = Map[String, Object]()
+                statementLeftAttributes += ("type" -> variableDataType)
+                statementLeftAttributes += ("value" -> variableName)
+                val localVariableId = 2 * BASE_ID + statementRightId
+                localVariablesIds = localVariablesIds.appended(localVariableId)
+                statementLeftAttributes += ("referencedDeclaration" -> localVariableId.asInstanceOf[Object])
+                statementLeft += ("attributes" -> statementLeftAttributes)
 
-              statementsLeft = statementsLeft.appended(statementLeft)
-              statementIds = statementIds.appended(6 * BASE_ID + statementRightId)
+                statementsLeft = statementsLeft.appended(statementLeft)
+                statementIds = statementIds.appended(6 * BASE_ID + statementRightId)
 
-              tupleElementNumber += 1
+                tupleElementNumber += 1
+              }
+
+              // Assign the values of the temporary variables to the variables on the left.
+              // There is no need to actually copy these lists because lists are immutable.
+              val statementsLeftCopy = statementsLeft
+              val statementsRightCopy = statementsRight
+              statementsRight = List.concat(statementsRight, statementsLeftCopy.map(statementTmp => {
+                val updatedId = statementTmp("id").toString.toInt + 8 * BASE_ID
+                statementTmp + ("id" -> updatedId.asInstanceOf[Object])
+              }))
+              val leftChild = operationChildren(0).asInstanceOf[Map[String, List[Map[String, Object]]]]
+              val newStatementsLeft = leftChild("children")
+
+              statementsLeft = List.concat(statementsLeft, newStatementsLeft)
+              statementIds = List.concat(statementIds, statementIds.map(_ + 2 * BASE_ID))
+
+              require(statementIds.length == statementsLeft.length)
+              require(statementIds.length == statementsRight.length)
+            } else {
+              // The single statement on the right is a function call. No temporary variables needed.
+              overrideStatementRightId = registerStatement(graph, operationChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+
+              val leftChild = operationChildren(0).asInstanceOf[Map[String, List[Map[String, Object]]]]
+              val components = leftChild("attributes").asInstanceOf[Map[String, Object]]("components").asInstanceOf[List[Map[String, Object]]]
+
+              for(component <- components) {
+                if(component != null) {
+                  val componentId = component("id").toString.toInt
+                  statementsLeft = statementsLeft.appended(component)
+                  val makeshiftStatementId = 10*(statementId*BASE_ID) + componentId
+                  statementIds = statementIds.appended(makeshiftStatementId)
+                }
+              }
             }
-
-            // Assign the values of the temporary variables to the variables on the left.
-            // There is no need to actually copy these lists because lists are immutable.
-            val statementsLeftCopy = statementsLeft
-            val statementsRightCopy = statementsRight
-            statementsRight = List.concat(statementsRight, statementsLeftCopy.map(statementTmp => {
-              val updatedId = statementTmp("id").toString.toInt + 8 * BASE_ID
-              statementTmp + ("id" -> updatedId.asInstanceOf[Object])
-            }))
-            statementsLeft = List.concat(statementsLeft, operationChildren(0).asInstanceOf[Map[String, List[Map[String, Object]]]]("children"))
-            statementIds = List.concat(statementIds, statementIds.map(_ + 2 * BASE_ID))
           }
-
-          require(statementIds.length == statementsLeft.length)
-          require(statementIds.length == statementsRight.length)
 
           for (i <- 0 until statementIds.length) {
             val statementIdI = statementIds(i)
             val statementLeft = statementsLeft(i)
-            val statementRight = statementsRight(i)
 
             val statementLeftId = registerStatement(graph, statementLeft, 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
-            val statementRightId = registerStatement(graph, statementRight, 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+            val statementRightId = if(overrideStatementRightId != -1) overrideStatementRightId else registerStatement(graph, statementsRight(i), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
             val statementLeftAttributes = statementLeft("attributes").asInstanceOf[Map[String, Object]]
             val statementLeftKind = statementLeft("name").toString
