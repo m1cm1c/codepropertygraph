@@ -914,18 +914,37 @@ class FuzzyC2Cpg() {
           graph.node(2*BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + alternativeActionId))
         }
       } else {
-        val initialActionIds = registerStatement(graph, operation, 1, BASE_ID, placeholderReplacement, placeholderArguments)
-        val conditionId = registerStatement(graph, statementChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
-        val incrementId = registerStatement(graph, statementChildren(2), 3, BASE_ID, placeholderReplacement, placeholderArguments)(0)
-        val actionId = registerStatement(graph, statementChildren(3), 4, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+        // The skipped parts of the loop are mentioned in the attributes and are null.
+        val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
+        var currentChildNumber = 0
+        if(!(statementAttributes.keys.exists(_.equals("initializationExpression"))
+          && statementAttributes("initializationExpression") == null)) {
+          val initialActionIds = registerStatement(graph, statementChildren(currentChildNumber), currentChildNumber, BASE_ID, placeholderReplacement, placeholderArguments)
+          for(initialActionId <- initialActionIds)
+            graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + initialActionId))
 
-        // Weird order bc that's the order that the CPG AST uses.
-        graph.node(BASE_ID + statementId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
-        for(initialActionId <- initialActionIds)
-          graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + initialActionId))
-        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + conditionId))
-        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + incrementId))
+          currentChildNumber += 1
+        }
+        if(!(statementAttributes.keys.exists(_.equals("condition"))
+          && statementAttributes("condition") == null)) {
+          val conditionId = registerStatement(graph, statementChildren(currentChildNumber), currentChildNumber, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+          graph.node(BASE_ID + statementId).addEdge("CONDITION", graph.node(BASE_ID + conditionId))
+          graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + conditionId))
+
+          currentChildNumber += 1
+        }
+        if(!(statementAttributes.keys.exists(_.equals("loopExpression"))
+          && statementAttributes("loopExpression") == null)) {
+          val incrementId = registerStatement(graph, statementChildren(currentChildNumber), currentChildNumber, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+          graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + incrementId))
+
+          currentChildNumber += 1
+        }
+        val actionId = registerStatement(graph, statementChildren(currentChildNumber), currentChildNumber, BASE_ID, placeholderReplacement, placeholderArguments)(0)
         graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + actionId))
+        currentChildNumber += 1
+
+        require(currentChildNumber == statementChildren.length)
       }
       return Array(statementId)
     }
