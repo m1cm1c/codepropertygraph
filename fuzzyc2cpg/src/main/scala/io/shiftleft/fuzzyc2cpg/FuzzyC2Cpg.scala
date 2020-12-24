@@ -100,6 +100,10 @@ class FuzzyC2Cpg() {
     }
   }
 
+  def doesFieldExist(jsonObject: JsonAST.JValue, attributeName: String): Boolean = {
+    jsonObject.findField(jfield => {jfield._1.equals(attributeName)}) != None
+  }
+
   def getField(jsonObject: JsonAST.JValue, attributeName: String) = {
     jsonObject.findField(jfield => {jfield._1.equals(attributeName)}).get._2.values
   }
@@ -175,12 +179,6 @@ class FuzzyC2Cpg() {
     val functionAttributesWrapped = getFieldWrapped(wrappedFunction, "attributes")
 
     val functionName = getFieldString(functionAttributesWrapped, "name") + functionNamePostfix
-    val isImplemented = getFieldBoolean(functionAttributesWrapped, "implemented")
-
-    // Ignore unimplemented functions.
-    if(!isImplemented) {
-      return
-    }
 
     graph.addNode(BASE_ID + functionId, "METHOD")
     graph.node(BASE_ID + functionId).setProperty("COLUMN_NUMBER", 0)
@@ -210,6 +208,20 @@ class FuzzyC2Cpg() {
       offset += 1
     val parameterListComponent = functionComponentsWrapped.children(offset)
     val returnValuesListComponent = functionComponentsWrapped.children(offset + 1)
+
+    // Solc 0.4 doesn't always seem to provide this field.
+    if(!doesFieldExist(functionAttributesWrapped,"implemented")) {
+      if(functionComponents.length - offset < 3)
+        return
+    } else {
+      val isImplemented = getFieldBoolean(functionAttributesWrapped, "implemented")
+
+      // Ignore unimplemented functions.
+      if (!isImplemented) {
+        return
+      }
+    }
+
     // Deal with function parameters.
     val parameterList = parameterListComponent.values.asInstanceOf[Map[String, List[Object]]]
     var order = 1
@@ -271,12 +283,6 @@ class FuzzyC2Cpg() {
     val functionAttributesWrapped = getFieldWrapped(wrappedFunction, "attributes")
 
     val functionName = getFieldString(functionAttributesWrapped, "name")
-    val isImplemented = getFieldBoolean(functionAttributesWrapped, "implemented")
-
-    // Ignore unimplemented functions.
-    if(!isImplemented) {
-      return
-    }
 
     val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
     val functionComponents = getFieldList(wrappedFunction, "children")
@@ -291,6 +297,19 @@ class FuzzyC2Cpg() {
 
     val bodyComponent = functionComponents(functionComponents.length-1)
     var modifierComponents = functionComponents.slice(offset + 2, functionComponents.length-1)
+
+    // Solc 0.4 doesn't always seem to provide this field.
+    if(!doesFieldExist(functionAttributesWrapped,"implemented")) {
+      if(functionComponents.length - offset < 3)
+        return
+    } else {
+      val isImplemented = getFieldBoolean(functionAttributesWrapped, "implemented")
+
+      // Ignore unimplemented functions.
+      if (!isImplemented) {
+        return
+      }
+    }
 
     // Remove modifiers that were already dealt with in previous calls to this function.
     modifierComponents = modifierComponents.slice(0, modifierComponents.length - numberOfModifiersRemoved)
