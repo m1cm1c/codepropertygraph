@@ -513,7 +513,12 @@ class FuzzyC2Cpg() {
       // ElementaryTypeNameExpressions don't always have the attribute "value".
       // This seems to be the case starting with Solidity 6.
       val code = if(statementAttributes.keys.exists(_.equals("value"))) {
-        statementAttributes("value").toString
+        // Solidity 6 has a thing where hex values can be described like "hex'ff'",
+        // in which case attribute "value" is null.
+        if(statementAttributes("value") != null)
+          statementAttributes("value").toString
+        else
+          "hex'" + statementAttributes("hexvalue").toString + "'"
       } else {
         statementMap("children").asInstanceOf[List[Map[String, Map[String, Object]]]](0)("attributes")("name").toString
       }
