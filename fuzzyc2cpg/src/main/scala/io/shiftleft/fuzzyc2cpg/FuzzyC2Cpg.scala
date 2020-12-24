@@ -1159,8 +1159,14 @@ class FuzzyC2Cpg() {
               // The single statement on the right is a function call. No temporary variables needed.
               overrideStatementRightId = registerStatement(graph, operationChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
+              // In older versions, the children are part of the attributes and
+              // are called "components".
               val leftChild = operationChildren(0).asInstanceOf[Map[String, List[Map[String, Object]]]]
-              val components = leftChild("attributes").asInstanceOf[Map[String, Object]]("components").asInstanceOf[List[Map[String, Object]]]
+              val leftChildAttributes = leftChild("attributes").asInstanceOf[Map[String, Object]]
+              val components = if(leftChildAttributes.keys.exists(_.equals("components")))
+                leftChildAttributes("components").asInstanceOf[List[Map[String, Object]]]
+              else
+                leftChild("children")
 
               for(component <- components) {
                 if(component != null) {
