@@ -921,8 +921,11 @@ class FuzzyC2Cpg() {
           statementMap("attributes").asInstanceOf[Map[String, Object]]
         else
           Map[String, Object]()
+
+        val solc6MissingInitializationExpression = (statementAttributes.keys.toArray.length == 0 && statementChildren.length == 3)
         var currentChildNumber = 0
-        if(!(statementAttributes.keys.exists(_.equals("initializationExpression"))
+        if(!solc6MissingInitializationExpression &&
+          !(statementAttributes.keys.exists(_.equals("initializationExpression"))
           && statementAttributes("initializationExpression") == null)) {
           val initialActionIds = registerStatement(graph, statementChildren(currentChildNumber), currentChildNumber, BASE_ID, placeholderReplacement, placeholderArguments)
           for(initialActionId <- initialActionIds)
