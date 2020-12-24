@@ -915,7 +915,12 @@ class FuzzyC2Cpg() {
         }
       } else {
         // The skipped parts of the loop are mentioned in the attributes and are null.
-        val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
+        // However, if there are no skipped parts, loops don't have statement attributes.
+        // Therefore, an empty map needs to be created to keep the remaining code the same.
+        val statementAttributes = if(statementMap.keys.exists(_.equals("attributes")))
+          statementMap("attributes").asInstanceOf[Map[String, Object]]
+        else
+          Map[String, Object]()
         var currentChildNumber = 0
         if(!(statementAttributes.keys.exists(_.equals("initializationExpression"))
           && statementAttributes("initializationExpression") == null)) {
