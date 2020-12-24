@@ -1126,19 +1126,9 @@ class FuzzyC2Cpg() {
       case "ExpressionStatement" => {
         println("Operation name: " + operationName)
 
-        if(operationName.equals("FunctionCall")) {
-          return registerStatement(graph, operation, order, BASE_ID, placeholderReplacement, placeholderArguments)
-        }
-
-        if(operationName.equals("BinaryOperation")) {
-          return registerStatement(graph, operation, order, BASE_ID, placeholderReplacement, placeholderArguments)
-        }
-
-        if(operationName.equals("UnaryOperation")) {
-          return registerStatement(graph, operation, order, BASE_ID, placeholderReplacement, placeholderArguments)
-        }
-
-        if(operationName.equals("Identifier")) {
+        if(operationName.equals("FunctionCall") || operationName.equals("BinaryOperation")
+        || operationName.equals("UnaryOperation") || operationName.equals("Identifier")
+        || operationName.equals("Conditional")) {
           return registerStatement(graph, operation, order, BASE_ID, placeholderReplacement, placeholderArguments)
         }
 
@@ -1321,6 +1311,9 @@ class FuzzyC2Cpg() {
 
           return List.concat(localVariablesIds, statementIds).toArray
         }
+
+        println("Unknown operation with name: " + operationName)
+        require(false)
       }
     }
 
