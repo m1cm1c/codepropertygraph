@@ -510,10 +510,18 @@ class FuzzyC2Cpg() {
 
       // ElementaryTypeNameExpressions are treated as literals for lack of a
       // better alternative.
+      // ElementaryTypeNameExpressions don't always have the attribute "value".
+      // This seems to be the case starting with Solidity 6.
+      val code = if(statementAttributes.keys.exists(_.equals("value"))) {
+        statementAttributes("value").toString
+      } else {
+        statementMap("children").asInstanceOf[List[Map[String, Map[String, Object]]]](0)("attributes")("name").toString
+      }
+
       graph.addNode(BASE_ID + statementId, (if (statementName.equals("Identifier")) "IDENTIFIER" else "LITERAL"))
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
       graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
-      graph.node(BASE_ID + statementId).setProperty("CODE", statementAttributes("value").toString)
+      graph.node(BASE_ID + statementId).setProperty("CODE", code)
       graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
       graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", statementAttributes("type").toString)
       graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
