@@ -1016,33 +1016,48 @@ class FuzzyC2Cpg() {
     val operationAttributes = operation("attributes").asInstanceOf[Map[String, Object]]
 
     if(statementName.equals("IndexAccess")) {
-      val leftId = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
-      val rightId = registerStatement(graph, statementChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+      // Depending on the solc version, an ElementaryTypeNameExpression can wrongly
+      // occur as an IndexAccess. In this cases, the IndexAccess only has 1 child.
+      if(statementChildren.length == 1) {
+        val code = statementMap("attributes").asInstanceOf[Map[String, Object]]("type").toString
 
-      val arrayName = graph.node(BASE_ID + leftId).property("CODE").toString
-      val indexAccessed = graph.node(BASE_ID + rightId).property("CODE").toString
+        graph.addNode(BASE_ID + statementId, "LITERAL")
+        graph.node(BASE_ID + statementId).setProperty("ORDER", order)
+        graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
+        graph.node(BASE_ID + statementId).setProperty("CODE", code)
+        graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+        graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", code)
+        graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+        graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      } else {
+        val leftId = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+        val rightId = registerStatement(graph, statementChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
-      val code = arrayName + "[" + indexAccessed + "]"
+        val arrayName = graph.node(BASE_ID + leftId).property("CODE").toString
+        val indexAccessed = graph.node(BASE_ID + rightId).property("CODE").toString
 
-      graph.addNode(BASE_ID + statementId, "CALL")
-      graph.node(BASE_ID + statementId).setProperty("ORDER", order)
-      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
-      graph.node(BASE_ID + statementId).setProperty("CODE", code)
-      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
-      graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", "<operator>.assignment")
-      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
-      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
-      graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
-      graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
-      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-      graph.node(BASE_ID + statementId).setProperty("NAME", "<operator>.assignment")
-      order += 1
+        val code = arrayName + "[" + indexAccessed + "]"
 
-      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + leftId))
-      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + rightId))
+        graph.addNode(BASE_ID + statementId, "CALL")
+        graph.node(BASE_ID + statementId).setProperty("ORDER", order)
+        graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
+        graph.node(BASE_ID + statementId).setProperty("CODE", code)
+        graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+        graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", "<operator>.assignment")
+        graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
+        graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+        graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+        graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
+        graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+        graph.node(BASE_ID + statementId).setProperty("NAME", "<operator>.assignment")
+        order += 1
 
-      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + leftId))
-      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + rightId))
+        graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + leftId))
+        graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + rightId))
+
+        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + leftId))
+        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + rightId))
+      }
 
       return Array(statementId)
     }
