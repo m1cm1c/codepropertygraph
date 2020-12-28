@@ -281,6 +281,7 @@ class FuzzyC2Cpg() {
   def registerFunctionBody(graph: Graph, modifierDefinitions: List[Map[String, Object]], wrappedFunction: JsonAST.JValue, numberOfModifiersRemoved: Int = 0): Unit = {
     val functionId = getFieldInt(wrappedFunction, "id")
     val functionAttributesWrapped = getFieldWrapped(wrappedFunction, "attributes")
+    val functionAttributes = getField(wrappedFunction, "attributes").asInstanceOf[Map[String, Object]]
 
     val functionName = getFieldString(functionAttributesWrapped, "name")
 
@@ -328,7 +329,7 @@ class FuzzyC2Cpg() {
 
     // Modifiers of constructors (empty function name) call the parent's
     // constructor. This is not supported.
-    if(modifierComponents.length == 0 || functionName.equals("")) {
+    if(modifierComponents.length == 0 || functionName.equals("") || functionAttributes("isConstructor").equals(true)) {
       // Deal with function body.
       val placeholderReplacement = ""
       val placeholderArguments = List()
