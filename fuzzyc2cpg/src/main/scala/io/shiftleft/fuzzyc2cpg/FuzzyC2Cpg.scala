@@ -1202,7 +1202,7 @@ class FuzzyC2Cpg() {
         if(operationName.equals("FunctionCall") || operationName.equals("BinaryOperation")
         || operationName.equals("UnaryOperation") || operationName.equals("Identifier")
         || operationName.equals("Conditional") || operationName.equals("MemberAccess")
-        || operationName.equals("TupleExpression")) {
+        || operationName.equals("TupleExpression") || operationName.equals("FunctionCallOptions")) {
           return registerStatement(graph, operation, order, BASE_ID, placeholderReplacement, placeholderArguments)
         }
 
