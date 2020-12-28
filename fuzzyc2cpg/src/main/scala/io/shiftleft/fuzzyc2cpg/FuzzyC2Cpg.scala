@@ -506,12 +506,31 @@ class FuzzyC2Cpg() {
     val statementId = statementMap("id").toString.toInt
     println("Statement ID: " + statementId)
 
+    // When ignoring statements, empty blocks are created so a statement ID can be returned.
     if(statementName.equals("EmitStatement")) {
-      return Array()
+      graph.addNode(BASE_ID + statementId, "BLOCK")
+      graph.node(BASE_ID + statementId).setProperty("ORDER", order)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
+      graph.node(BASE_ID + statementId).setProperty("CODE", "")
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "void")
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+      return Array(statementId)
     }
 
     if(statementName.equals("InlineAssembly")) {
-      return Array()
+      graph.addNode(BASE_ID + statementId, "BLOCK")
+      graph.node(BASE_ID + statementId).setProperty("ORDER", order)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
+      graph.node(BASE_ID + statementId).setProperty("CODE", "")
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "void")
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+      return Array(statementId)
     }
 
     if(statementName.equals("PlaceholderStatement")) {
