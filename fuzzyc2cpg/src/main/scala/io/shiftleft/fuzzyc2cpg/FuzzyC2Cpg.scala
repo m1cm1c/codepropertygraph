@@ -1561,7 +1561,7 @@ class FuzzyC2Cpg() {
       val astCreator = new AstCreationPass(sourceFileNames, cpg, functionKeyPools.head)
       astCreator.createAndApply() // MARK
     } else {
-        /*
+      /*
       // MARK: Einstiegspunkt
       // The first 4 nodes are: MetaData, NamespaceBlock, File, NamespaceBlock
       // All other nodes need to be deleted.
@@ -1580,94 +1580,100 @@ class FuzzyC2Cpg() {
       }
       // TODO: Wieso wird die AST-Edge von "io.shiftleft.codepropertygraph.generated.nodes.NamespaceBlock[label=NAMESPACE_BLOCK; id=1000101]" zu
       // TODO: "io.shiftleft.codepropertygraph.generated.nodes.Method[label=METHOD; id=1000102]" nicht entfernt, obwohl der Ziel-Knoten entfernt wird?
-  */
+      */
 
-        graph.addNode(1000100, "FILE")
-        graph.addNode(1000101, "NAMESPACE_BLOCK")
+      graph.addNode(1000100, "FILE")
+      graph.addNode(1000101, "NAMESPACE_BLOCK")
 
-        graph.node(1000100).setProperty("ORDER", -1)
-        graph.node(1000100).setProperty("NAME", "/home/christoph/.applications/x42/c/X42.c")
+      graph.node(1000100).setProperty("ORDER", -1)
+      graph.node(1000100).setProperty("NAME", "/home/christoph/.applications/x42/c/X42.c")
 
-        graph.node(1000101).setProperty("FULL_NAME", "/home/christoph/.applications/x42/c/X42.c:<global>")
-        graph.node(1000101).setProperty("ORDER", -1)
-        graph.node(1000101).setProperty("FILENAME", "")
-        graph.node(1000101).setProperty("NAME", "<global>")
+      graph.node(1000101).setProperty("FULL_NAME", "/home/christoph/.applications/x42/c/X42.c:<global>")
+      graph.node(1000101).setProperty("ORDER", -1)
+      graph.node(1000101).setProperty("FILENAME", "")
+      graph.node(1000101).setProperty("NAME", "<global>")
 
-        graph.node(1000100).addEdge("AST", graph.node(1000101))
+      graph.node(1000100).addEdge("AST", graph.node(1000101))
 
-        val astJsonFilePath = sys.env("AST_JSON_FILE_PATH")
-        println(astJsonFilePath)
-        val fileContents = Source.fromFile(astJsonFilePath).getLines.mkString
-        val originalAst = parse(fileContents)
+      val astJsonFilePath = sys.env("AST_JSON_FILE_PATH")
+      println(astJsonFilePath)
+      val fileContents = Source.fromFile(astJsonFilePath).getLines.mkString
+      val originalAst = parse(fileContents)
 
-        /*childrenOpt match {
+      /*childrenOpt match {
         case Some(children) => println(children._2)
         case None => println("no children")
       }*/
-        val topLevelElements = originalAst.findField((jfield) => {
-          jfield._1.equals("children")
-        }).get._2
-        val contracts = topLevelElements.children.filter(thing => {
-          thing.values.asInstanceOf[Map[String, Object]]("name").equals("ContractDefinition")
-        })
+      val topLevelElements = originalAst.findField((jfield) => {
+        jfield._1.equals("children")
+      }).get._2
+      val contracts = topLevelElements.children.filter(thing => {
+        thing.values.asInstanceOf[Map[String, Object]]("name").equals("ContractDefinition")
+      })
 
       var modifierDefinitions = List[Map[String, Object]]()
 
-      for(contract <- contracts) {
-        val contractLevelElements = contract.findField((jfield) => {
+      for (contract <- contracts) {
+        val contractLevelElementsOption = contract.findField((jfield) => {
           jfield._1.equals("children")
-        }).get._2
-          .children
-
-        // We need to loop through twice because otherwise we wouldn't be able
-        // to access function definitions in function bodies.
-        contractLevelElements.foreach(wrappedContractLevelElement => {
-          // This is equivalent to this JS code:
-          // let name = wrappedContractLevelElement.name
-          val name = wrappedContractLevelElement.findField(jfield => {
-            jfield._1.equals("name")
-          }).get._2.values.toString
-
-          name match {
-            case "VariableDeclaration" => registerVariable(graph, wrappedContractLevelElement)
-            case "FunctionDefinition" => registerFunctionHeader(graph, wrappedContractLevelElement)
-            case "StructDefinition" => registerStructOrEnum(graph, wrappedContractLevelElement)
-            case "EnumDefinition" => registerStructOrEnum(graph, wrappedContractLevelElement)
-            case _ => {}
-          }
         })
+        // Is None if the contract is completely empty.
+        if (!contractLevelElementsOption.equals(None)) {
+          val contractLevelElements = contractLevelElementsOption.get._2.children
 
-        // Collect modifier definitions.
-        contractLevelElements.foreach(wrappedContractLevelElement => {
-          val name = wrappedContractLevelElement.findField(jfield => {
-            jfield._1.equals("name")
-          }).get._2.values.toString
-          name match {
-            case "ModifierDefinition" => {
-              val modifierDefinition = wrappedContractLevelElement.values.asInstanceOf[Map[String, Object]]
-              modifierDefinitions = modifierDefinitions.appended(modifierDefinition)
+          // We need to loop through twice because otherwise we wouldn't be able
+          // to access function definitions in function bodies.
+          contractLevelElements.foreach(wrappedContractLevelElement => {
+            // This is equivalent to this JS code:
+            // let name = wrappedContractLevelElement.name
+            val name = wrappedContractLevelElement.findField(jfield => {
+              jfield._1.equals("name")
+            }).get._2.values.toString
+
+            name match {
+              case "VariableDeclaration" => registerVariable(graph, wrappedContractLevelElement)
+              case "FunctionDefinition" => registerFunctionHeader(graph, wrappedContractLevelElement)
+              case "StructDefinition" => registerStructOrEnum(graph, wrappedContractLevelElement)
+              case "EnumDefinition" => registerStructOrEnum(graph, wrappedContractLevelElement)
+              case _ => {}
             }
-            case _ => {}
-          }
-        })
+          })
+
+          // Collect modifier definitions.
+          contractLevelElements.foreach(wrappedContractLevelElement => {
+            val name = wrappedContractLevelElement.findField(jfield => {
+              jfield._1.equals("name")
+            }).get._2.values.toString
+            name match {
+              case "ModifierDefinition" => {
+                val modifierDefinition = wrappedContractLevelElement.values.asInstanceOf[Map[String, Object]]
+                modifierDefinitions = modifierDefinitions.appended(modifierDefinition)
+              }
+              case _ => {}
+            }
+          })
+        }
       }
 
       for(contract <- contracts) {
-        val contractLevelElements = contract.findField((jfield) => {
+        val contractLevelElementsOption = contract.findField((jfield) => {
           jfield._1.equals("children")
-        }).get._2
-          .children
-
-        contractLevelElements.foreach(wrappedContractLevelElement => {
-          val name = wrappedContractLevelElement.findField(jfield => {
-            jfield._1.equals("name")
-          }).get._2.values.toString
-          name match {
-            case "FunctionDefinition" => registerFunctionBody(graph, modifierDefinitions, wrappedContractLevelElement)
-            case _ => {}
-          }
         })
-        println("processing completed")
+        // Is None if the contract is completely empty.
+        if(!contractLevelElementsOption.equals(None)) {
+          val contractLevelElements = contractLevelElementsOption.get._2.children
+
+          contractLevelElements.foreach(wrappedContractLevelElement => {
+            val name = wrappedContractLevelElement.findField(jfield => {
+              jfield._1.equals("name")
+            }).get._2.values.toString
+            name match {
+              case "FunctionDefinition" => registerFunctionBody(graph, modifierDefinitions, wrappedContractLevelElement)
+              case _ => {}
+            }
+          })
+          println("processing completed")
+        }
       }
     }
     printNodes(graph)
