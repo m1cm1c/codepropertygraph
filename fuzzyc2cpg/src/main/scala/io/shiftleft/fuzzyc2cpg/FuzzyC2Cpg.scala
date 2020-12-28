@@ -510,6 +510,10 @@ class FuzzyC2Cpg() {
       return Array()
     }
 
+    if(statementName.equals("InlineAssembly")) {
+      return Array()
+    }
+
     if(statementName.equals("PlaceholderStatement")) {
       graph.addNode(BASE_ID + statementId, "CALL")
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
