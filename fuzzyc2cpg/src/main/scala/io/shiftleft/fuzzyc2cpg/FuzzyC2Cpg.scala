@@ -598,6 +598,23 @@ class FuzzyC2Cpg() {
       return Array(statementId)
     }
 
+    if(statementName.equals("Throw")) {
+      graph.addNode(BASE_ID + statementId, "CALL")
+      graph.node(BASE_ID + statementId).setProperty("ORDER", order)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
+      graph.node(BASE_ID + statementId).setProperty("CODE", "throw;")
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", "throw")
+      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+      graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
+      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID + statementId).setProperty("NAME", "throw")
+
+      return Array(statementId)
+    }
+
     // FunctionCallOptions are not really supported.
     // I'm merely passing on the last options value.
     if(statementName.equals("FunctionCallOptions")) {
