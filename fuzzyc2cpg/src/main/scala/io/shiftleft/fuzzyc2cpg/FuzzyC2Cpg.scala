@@ -1326,6 +1326,19 @@ class FuzzyC2Cpg() {
               assignmentHelper(graph, BASE_ID, statementIdI, order, statementLeftId, statementLeftVariableName, operatorName, statementLeftReferencedId, statementRightId)
               order += 1
               println("exited assignment helper")
+            } else if (statementLeftKind.equals("TupleExpression")) {
+              // For some reason, this happens if you (for some reason) use parenthesis on
+              // the left-hand side despite there only being a single variable on the
+              // left-hand side.
+              val children = statementLeft("children").asInstanceOf[List[Map[String, Object]]]
+              require(children.length == 1)
+              val childAttributes = children(0)("attributes").asInstanceOf[Map[String, Object]]
+              val statementLeftVariableName = childAttributes("value").toString
+              val statementLeftReferencedId = childAttributes("referencedDeclaration").toString.toInt
+              println("entering assignment helper")
+              assignmentHelper(graph, BASE_ID, statementIdI, order, statementLeftId, statementLeftVariableName, operatorName, statementLeftReferencedId, statementRightId)
+              order += 1
+              println("exited assignment helper")
             } else if (statementLeftKind.equals("MemberAccess")) {
               val memberName = statementLeftAttributes("member_name").toString
               val struct = statementLeft("children").asInstanceOf[List[Map[String, Object]]](0)
