@@ -1785,7 +1785,7 @@ object FuzzyC2Cpg {
 
   private val logger = LoggerFactory.getLogger(classOf[FuzzyC2Cpg])
 
-  def main(args: Array[String]): Unit = {
+  def main_orig(args: Array[String]): Unit = {
     parseConfig(args) match {
       case Some(config) =>
         try {
@@ -1879,4 +1879,8 @@ object FuzzyC2Cpg {
         .action((_, cfg) => cfg.copy(overflowDb = true))
     }.parse(args, Config())
 
+}
+
+object Main extends App {
+  FuzzyC2Cpg.main_orig(Array("/home/christoph/.applications/x42/c/"))
 }
