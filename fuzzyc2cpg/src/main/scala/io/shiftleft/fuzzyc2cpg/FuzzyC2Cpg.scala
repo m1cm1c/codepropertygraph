@@ -278,7 +278,7 @@ class FuzzyC2Cpg() {
     }
   }
 
-  def registerFunctionBody(graph: Graph, modifierDefinitions: List[Map[String, Object]], wrappedFunction: JsonAST.JValue, numberOfModifiersRemoved: Int = 0): Unit = {
+  def registerFunctionBody(graph: Graph, modifierDefinitions: List[Map[String, Object]], wrappedFunction: JsonAST.JValue, numberOfModifiersRemoved: Int = 0): Long = {
     val functionId = getFieldInt(wrappedFunction, "id")
     val functionAttributesWrapped = getFieldWrapped(wrappedFunction, "attributes")
     val functionAttributes = getField(wrappedFunction, "attributes").asInstanceOf[Map[String, Object]]
@@ -302,13 +302,13 @@ class FuzzyC2Cpg() {
     // Solc 0.4 doesn't always seem to provide this field.
     if(!doesFieldExist(functionAttributesWrapped,"implemented")) {
       if(functionComponents.length - offset < 3)
-        return
+        return -1
     } else {
       val isImplemented = getFieldBoolean(functionAttributesWrapped, "implemented")
 
       // Ignore unimplemented functions.
       if (!isImplemented) {
-        return
+        return -1
       }
     }
 
@@ -348,42 +348,48 @@ class FuzzyC2Cpg() {
       val subFunctionNamePostfix = "_MODIFIERS_REMOVED_" + (numberOfModifiersRemoved + 1)
       val subFunctionName = functionName + subFunctionNamePostfix
       registerFunctionHeader(graph, wrappedFunction, BASE_ID, subFunctionNamePostfix)
-      registerFunctionBody(graph, modifierDefinitions, wrappedFunction, numberOfModifiersRemoved+1)
+      val subBlockNodeId = registerFunctionBody(graph, modifierDefinitions, wrappedFunction, numberOfModifiersRemoved+1)
 
       val modifierComponent = modifierComponents(modifierComponents.length - 1)
       val modifierInstanceName = registerModifierInstance(graph, modifierDefinitions, BASE_ID, subFunctionName, numberOfModifiersRemoved, modifierComponent.asInstanceOf[Map[String, Object]])
+      // Skip modifiers that are defined in a different AST fragment.
+      if(modifierInstanceName.equals("")) {
+        blockNodeId = subBlockNodeId
+      } else {
+        graph.addNode(BASE_ID - 1, "BLOCK")
+        graph.node(BASE_ID - 1).setProperty("ORDER", order)
+        graph.node(BASE_ID - 1).setProperty("ARGUMENT_INDEX", order)
+        graph.node(BASE_ID - 1).setProperty("CODE", "")
+        graph.node(BASE_ID - 1).setProperty("COLUMN_NUMBER", 0)
+        graph.node(BASE_ID - 1).setProperty("TYPE_FULL_NAME", "void")
+        graph.node(BASE_ID - 1).setProperty("LINE_NUMBER", 0)
+        graph.node(BASE_ID - 1).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
 
-      graph.addNode(BASE_ID - 1, "BLOCK")
-      graph.node(BASE_ID - 1).setProperty("ORDER", order)
-      graph.node(BASE_ID - 1).setProperty("ARGUMENT_INDEX", order)
-      graph.node(BASE_ID - 1).setProperty("CODE", "")
-      graph.node(BASE_ID - 1).setProperty("COLUMN_NUMBER", 0)
-      graph.node(BASE_ID - 1).setProperty("TYPE_FULL_NAME", "void")
-      graph.node(BASE_ID - 1).setProperty("LINE_NUMBER", 0)
-      graph.node(BASE_ID - 1).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+        graph.addNode(BASE_ID, "CALL")
+        graph.node(BASE_ID).setProperty("ORDER", 1)
+        graph.node(BASE_ID).setProperty("ARGUMENT_INDEX", 1)
+        graph.node(BASE_ID).setProperty("CODE", "")
+        graph.node(BASE_ID).setProperty("COLUMN_NUMBER", 0)
+        graph.node(BASE_ID).setProperty("METHOD_FULL_NAME", modifierInstanceName) // This could alternatively be set to the value of property "FULL_NAME" of node BASE_ID + functionReferencedId.
+        graph.node(BASE_ID).setProperty("TYPE_FULL_NAME", "ANY")
+        graph.node(BASE_ID).setProperty("LINE_NUMBER", 0)
+        graph.node(BASE_ID).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+        graph.node(BASE_ID).setProperty("SIGNATURE", "TODO assignment signature")
+        graph.node(BASE_ID).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+        graph.node(BASE_ID).setProperty("NAME", modifierInstanceName)
 
-      graph.addNode(BASE_ID, "CALL")
-      graph.node(BASE_ID).setProperty("ORDER", 1)
-      graph.node(BASE_ID).setProperty("ARGUMENT_INDEX", 1)
-      graph.node(BASE_ID).setProperty("CODE", "")
-      graph.node(BASE_ID).setProperty("COLUMN_NUMBER", 0)
-      graph.node(BASE_ID).setProperty("METHOD_FULL_NAME", modifierInstanceName) // This could alternatively be set to the value of property "FULL_NAME" of node BASE_ID + functionReferencedId.
-      graph.node(BASE_ID).setProperty("TYPE_FULL_NAME", "ANY")
-      graph.node(BASE_ID).setProperty("LINE_NUMBER", 0)
-      graph.node(BASE_ID).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
-      graph.node(BASE_ID).setProperty("SIGNATURE", "TODO assignment signature")
-      graph.node(BASE_ID).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-      graph.node(BASE_ID).setProperty("NAME", modifierInstanceName)
+        graph.node(BASE_ID - 1).addEdge("AST", graph.node(BASE_ID))
 
-      graph.node(BASE_ID - 1).addEdge("AST", graph.node(BASE_ID))
-
-      blockNodeId = BASE_ID - 1
+        blockNodeId = BASE_ID - 1
+      }
     }
 
     // In the outer-most case, an additional AST edge is needed to connect the function definition with the block ID.
     if(numberOfModifiersRemoved == 0) {
       graph.node(REAL_BASE_ID + functionId).addEdge("AST", graph.node(blockNodeId))
     }
+
+    blockNodeId
   }
 
   def registerModifierInstance(graph: Graph, modifierDefinitions: List[Map[String, Object]], BASE_ID: Long, placeholderReplacement: String, numberOfModifiersRemoved: Int, modifierInvocation: Map[String, Object]): String = {
@@ -391,7 +397,12 @@ class FuzzyC2Cpg() {
     val modifierInvocationArguments = modifierInvocationChildren.slice(1, modifierInvocationChildren.length)
     val modifierReferenceId = modifierInvocationChildren(0)("attributes").asInstanceOf[Map[String, Object]]("referencedDeclaration").toString.toInt
 
-    val modifierDefinition = modifierDefinitions.filter(_("id").toString.toInt == modifierReferenceId)(0)
+    val filteredModifierDefinitions = modifierDefinitions.filter(_("id").toString.toInt == modifierReferenceId)
+    // Skip modifiers that are defined in a different AST fragment.
+    if(filteredModifierDefinitions.length == 0)
+      return ""
+    require(filteredModifierDefinitions.length == 1)
+    val modifierDefinition = filteredModifierDefinitions(0)
 
     val modifierName = modifierDefinition("attributes").asInstanceOf[Map[String, Object]]("name").toString
     val modifierInstanceName = modifierName + "_CALLING_" + placeholderReplacement
