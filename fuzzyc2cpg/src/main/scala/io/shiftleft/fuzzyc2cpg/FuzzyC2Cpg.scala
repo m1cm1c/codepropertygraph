@@ -537,7 +537,6 @@ class FuzzyC2Cpg() {
       graph.addNode(BASE_ID + statementId, "CALL")
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
       graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
-      graph.node(BASE_ID + statementId).setProperty("CODE", placeholderReplacement + "(...)")
       graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
       graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", placeholderReplacement)
       graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
@@ -547,6 +546,8 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + statementId).setProperty("NAME", placeholderReplacement)
 
+      var code = placeholderReplacement + "("
+      var firstIteration = true
       var argumentNumber = 1
       for(argumentComponent <- placeholderArguments) {
         // The BASE_ID needs to be adapted to support multiple occurrences of PlaceholderStatement
@@ -554,8 +555,20 @@ class FuzzyC2Cpg() {
         val argumentId = registerStatement(graph, argumentComponent, argumentNumber, BASE_ID + REAL_BASE_ID*statementId, placeholderReplacement, placeholderArguments)(0)
         graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + REAL_BASE_ID*statementId + argumentId))
         graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + REAL_BASE_ID*statementId + argumentId))
+
+        if(firstIteration)
+          firstIteration = false
+        else
+          code += ", "
+
+        code += graph.node(BASE_ID + REAL_BASE_ID*statementId + argumentId).property("CODE")
+
         argumentNumber += 1
       }
+
+      code += ")"
+
+      graph.node(BASE_ID + statementId).setProperty("CODE", code)
 
       return Array(statementId)
     }
@@ -660,12 +673,11 @@ class FuzzyC2Cpg() {
       val code = "return " + symbol
       println(code)
        */
-      val code = "return (...)"
+      var code = "return"
       graph.addNode(BASE_ID + statementId, "RETURN")
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
       graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
       graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
-      graph.node(BASE_ID + statementId).setProperty("CODE", code)
       graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
 
       // The shared statementChildren variable definition cannot be used for return
@@ -678,7 +690,11 @@ class FuzzyC2Cpg() {
 
         graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + idChild))
         graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + idChild))
+
+        code += "(" + graph.node(BASE_ID + idChild).property("CODE") + ")"
       }
+
+      graph.node(BASE_ID + statementId).setProperty("CODE", code)
 
       return Array(statementId)
     }
@@ -1120,7 +1136,6 @@ class FuzzyC2Cpg() {
       graph.addNode(BASE_ID + statementId, "CALL")
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
       graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
-      graph.node(BASE_ID + statementId).setProperty("CODE", functionName + "(...)")
       graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
       graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", functionName) // This could alternatively be set to the value of property "FULL_NAME" of node BASE_ID + functionReferencedId.
       graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
@@ -1130,16 +1145,27 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + statementId).setProperty("NAME", functionName)
 
-      println(functionComponent)
-      println(argumentComponents)
-
+      var code = functionName + "("
+      var firstIteration = true
       var argumentNumber = 1
       for(argumentComponent <- argumentComponents) {
         val argumentId = registerStatement(graph, argumentComponent, argumentNumber, BASE_ID, placeholderReplacement, placeholderArguments)(0)
         graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + argumentId))
         graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + argumentId))
+
+        if(firstIteration)
+          firstIteration = false
+        else
+          code += ", "
+
+        code += graph.node(BASE_ID + argumentId).property("CODE")
+
         argumentNumber += 1
       }
+
+      code += ")"
+
+      graph.node(BASE_ID + statementId).setProperty("CODE", code)
 
       return Array(statementId)
     }
@@ -1181,7 +1207,7 @@ class FuzzyC2Cpg() {
         graph.addNode(BASE_ID + statementIdI, "CALL")
         graph.node(BASE_ID + statementIdI).setProperty("ORDER", order)
         graph.node(BASE_ID + statementIdI).setProperty("ARGUMENT_INDEX", order)
-        graph.node(BASE_ID + statementIdI).setProperty("CODE", statementLeftVariableName + " = (...)")
+        graph.node(BASE_ID + statementIdI).setProperty("CODE", statementLeftVariableName + " = " + graph.node(BASE_ID + statementRightId).property("CODE"))
         graph.node(BASE_ID + statementIdI).setProperty("COLUMN_NUMBER", 0)
         graph.node(BASE_ID + statementIdI).setProperty("METHOD_FULL_NAME", operatorName)
         graph.node(BASE_ID + statementIdI).setProperty("TYPE_FULL_NAME", "ANY")
@@ -1384,7 +1410,7 @@ class FuzzyC2Cpg() {
               graph.addNode(BASE_ID + statementIdI, "CALL")
               graph.node(BASE_ID + statementIdI).setProperty("ORDER", order)
               graph.node(BASE_ID + statementIdI).setProperty("ARGUMENT_INDEX", order)
-              graph.node(BASE_ID + statementIdI).setProperty("CODE", statementLeftVariableName + " = (...)")
+              graph.node(BASE_ID + statementIdI).setProperty("CODE", statementLeftVariableName + " = " + graph.node(BASE_ID + statementRightId).property("CODE"))
               graph.node(BASE_ID + statementIdI).setProperty("COLUMN_NUMBER", 0)
               graph.node(BASE_ID + statementIdI).setProperty("METHOD_FULL_NAME", operatorName)
               graph.node(BASE_ID + statementIdI).setProperty("TYPE_FULL_NAME", "ANY")
@@ -1445,7 +1471,7 @@ class FuzzyC2Cpg() {
     graph.addNode(BASE_ID + operationId, "CALL")
     graph.node(BASE_ID + operationId).setProperty("ORDER", order)
     graph.node(BASE_ID + operationId).setProperty("ARGUMENT_INDEX", order)
-    graph.node(BASE_ID + operationId).setProperty("CODE", statementLeftVariableName + " = (...)")
+    graph.node(BASE_ID + operationId).setProperty("CODE", statementLeftVariableName + " = " + graph.node(BASE_ID + statementRightId).property("CODE"))
     graph.node(BASE_ID + operationId).setProperty("COLUMN_NUMBER", 0)
     graph.node(BASE_ID + operationId).setProperty("METHOD_FULL_NAME", operatorName)
     graph.node(BASE_ID + operationId).setProperty("TYPE_FULL_NAME", "ANY")
