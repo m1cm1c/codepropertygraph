@@ -804,6 +804,8 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + arrayId))
       graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + beginningId))
       graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + endId))
+
+      return Array(statementId)
     }
 
     if(statementName.equals("BinaryOperation")) {
