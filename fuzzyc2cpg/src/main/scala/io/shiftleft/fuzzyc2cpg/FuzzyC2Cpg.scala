@@ -895,7 +895,9 @@ class FuzzyC2Cpg() {
       } else if(statementChildren.length >= 3) {
         val variableDeclarationOperations = statementChildren.slice(0, statementChildren.length-1)
         val rightName = statementChildren(statementChildren.length-1)("name").toString
-        val isFunctionCall = rightName.equals("FunctionCall") || rightName.equals("Conditional")
+        val isFunctionCall = rightName.equals("FunctionCall") || rightName.equals("Conditional") || rightName.equals("TupleExpression")
+        if(rightName.equals("TupleExpression"))
+          require(statementChildren(statementChildren.length-1)("children").asInstanceOf[List[Object]].length == 1)
         val statementsRight = if(!isFunctionCall)
           statementChildren(statementChildren.length-1)("children").asInstanceOf[List[Map[String, Object]]]
         else
