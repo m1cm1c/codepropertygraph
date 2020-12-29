@@ -747,7 +747,8 @@ class FuzzyC2Cpg() {
       && !statementName.equals("DoWhileStatement") && !statementName.equals("ForStatement")
       && !statementName.equals("BinaryOperation") && !statementName.equals("UnaryOperation")
       && !statementName.equals("FunctionCall") && !statementName.equals("VariableDeclarationStatement")
-      && !statementName.equals("IndexAccess") && !statementName.equals("Assignment")) {
+      && !statementName.equals("IndexAccess") && !statementName.equals("Assignment")
+      && !statementName.equals("IndexRangeAccess")) {
       println("panic!!! unknown statement with statement name: " + statementName)
       return Array()
     }
@@ -755,6 +756,38 @@ class FuzzyC2Cpg() {
     if(statementName.equals("Block")) {
       val blockId = registerBlock(graph, statementMap, order, BASE_ID, placeholderReplacement, placeholderArguments)
       return Array(blockId)
+    }
+
+    if(statementName.equals("IndexRangeAccess")) {
+      require(statementChildren.length == 3)
+      val arrayId = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+      val beginningId = registerStatement(graph, statementChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+      val endId = registerStatement(graph, statementChildren(2), 3, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+
+      val code = graph.node(BASE_ID + arrayId).property("CODE") + "[" +
+        graph.node(BASE_ID + beginningId).property("CODE") + ":" +
+        graph.node(BASE_ID + endId).property("CODE") + "]"
+
+      graph.addNode(BASE_ID + statementId, "CALL")
+      graph.node(BASE_ID + statementId).setProperty("ORDER", order)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
+      graph.node(BASE_ID + statementId).setProperty("CODE", code)
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", "IndexRangeAccess")
+      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+      graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
+      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID + statementId).setProperty("NAME", "IndexRangeAccess")
+
+      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + arrayId))
+      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + beginningId))
+      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + endId))
+
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + arrayId))
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + beginningId))
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + endId))
     }
 
     if(statementName.equals("BinaryOperation")) {
