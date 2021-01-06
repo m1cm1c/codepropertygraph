@@ -1120,21 +1120,8 @@ class FuzzyC2Cpg() {
       val functionComponent = statementChildren(0)
       val argumentComponents = statementChildren.slice(1, statementChildren.length)
 
-      val functionAttributes = {
-        if(!functionComponent.keys.exists(_.equals("name")) || !functionComponent("name").equals("NewExpression")) // Regular function call.
-          functionComponent("attributes").asInstanceOf[Map[String, Object]]
-        else // "new" expression (object creation).
-          statementMap("attributes").asInstanceOf[Map[String, Object]]
-      }
-
-      val functionName = {
-        if(functionAttributes.keys.exists(_.equals("value"))) // Regular function call.
-          functionAttributes("value").toString
-        else { // "new" expression (object creation).
-          val typeName = functionAttributes("type").toString
-          "new " + typeName
-        }
-      }
+      val functionId = registerStatement(graph, functionComponent, argumentComponents.length + 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+      val functionName = graph.node(BASE_ID + functionId).property("CODE")
 
       // val functionReferencedId = functionAttributes("referencedDeclaration").toString.toInt
 
@@ -1171,6 +1158,8 @@ class FuzzyC2Cpg() {
       code += ")"
 
       graph.node(BASE_ID + statementId).setProperty("CODE", code)
+
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + functionId))
 
       return Array(statementId)
     }
