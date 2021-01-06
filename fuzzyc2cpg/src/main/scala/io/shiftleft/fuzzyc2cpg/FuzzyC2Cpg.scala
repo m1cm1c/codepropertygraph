@@ -727,8 +727,8 @@ class FuzzyC2Cpg() {
       val completeAccessCode = structName + "." + memberName
 
       graph.addNode(BASE_ID + memberAccessId, "CALL")
-      graph.node(BASE_ID + memberAccessId).setProperty("ORDER", 1)
-      graph.node(BASE_ID + memberAccessId).setProperty("ARGUMENT_INDEX", 1)
+      graph.node(BASE_ID + memberAccessId).setProperty("ORDER", order)
+      graph.node(BASE_ID + memberAccessId).setProperty("ARGUMENT_INDEX", order)
       graph.node(BASE_ID + memberAccessId).setProperty("CODE", completeAccessCode)
       graph.node(BASE_ID + memberAccessId).setProperty("COLUMN_NUMBER", 0)
       graph.node(BASE_ID + memberAccessId).setProperty("METHOD_FULL_NAME", "<operator>.fieldAccess")
