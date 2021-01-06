@@ -757,6 +757,29 @@ class FuzzyC2Cpg() {
       return Array(memberAccessId)
     }
 
+    if(statementName.equals("NewExpression")) {
+      require(statementChildren.length == 1)
+
+      val childId = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+
+      val code = "new " + graph.node(BASE_ID + childId).property("CODE")
+
+      graph.addNode(BASE_ID + statementId, "CALL")
+      graph.node(BASE_ID + statementId).setProperty("ORDER", order)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
+      graph.node(BASE_ID + statementId).setProperty("CODE", code)
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", code)
+      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+      graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
+      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID + statementId).setProperty("NAME", code)
+
+      return Array(statementId)
+    }
+
     if(!statementName.equals("ExpressionStatement") && !statementName.equals("Block")
       && !statementName.equals("IfStatement") && !statementName.equals("Conditional")
       && !statementName.equals("WhileStatement")
