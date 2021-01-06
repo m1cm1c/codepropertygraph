@@ -559,14 +559,15 @@ class FuzzyC2Cpg() {
     }
 
     if(statementName.equals("Literal") || statementName.equals("Identifier")
-    || statementName.equals("ElementaryTypeNameExpression") || statementName.equals("ElementaryTypeName")) {
+      || statementName.equals("ElementaryTypeNameExpression")
+      || statementName.equals("ElementaryTypeName") || statementName.equals("UserDefinedTypeName")) {
       val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
 
       // ElementaryTypeNameExpressions and ElementaryTypeNames are treated as
       // literals for lack of a better alternative.
       // ElementaryTypeNameExpressions don't always have the attribute "value".
       // This seems to be the case starting with Solidity 6.
-      val code = if(statementName.equals("ElementaryTypeName"))
+      val code = if(statementName.equals("ElementaryTypeName") || statementName.equals("UserDefinedTypeName"))
         statementAttributes("name").toString
       else if(statementAttributes.keys.exists(_.equals("value")) || statementAttributes.keys.exists(_.equals("hexvalue"))) {
         // Solidity 6 has a thing where hex values can be described like "hex'ff'",
