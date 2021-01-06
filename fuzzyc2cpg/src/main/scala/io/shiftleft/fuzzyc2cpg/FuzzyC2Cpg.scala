@@ -249,34 +249,19 @@ class FuzzyC2Cpg() {
 
     // Deal with function return values.
     order += 1
-    val returnValuesList = returnValuesListComponent.values.asInstanceOf[Map[String, List[Object]]]
-    // The CPG does not support multiple METHOD_RETURN nodes for some reason.
-    var firstIteration = true
-    for(attributeSpecificObject <- returnValuesList("children")) {
-      if(firstIteration) {
-        val attributeSpecificMap = attributeSpecificObject.asInstanceOf[Map[String, Object]]
-        val returnValueId = attributeSpecificMap("id").toString.toInt
-        val attributeMap = attributeSpecificMap("attributes").asInstanceOf[Map[String, Object]]
-        val returnValueName = attributeMap("name").toString
-        val returnValueType = attributeMap("type").toString
+    // val returnValuesList = returnValuesListComponent.values.asInstanceOf[Map[String, List[Object]]]
+    // The CPG always requires exactly 1 return value.
+    graph.addNode(2*BASE_ID + functionId, "METHOD_RETURN")
+    graph.node(2*BASE_ID + functionId).setProperty("ORDER", order)
+    graph.node(2*BASE_ID + functionId).setProperty("CODE", "")
+    graph.node(2*BASE_ID + functionId).setProperty("COLUMN_NUMBER", 0)
+    graph.node(2*BASE_ID + functionId).setProperty("LINE_NUMBER", 0)
+    graph.node(2*BASE_ID + functionId).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(2*BASE_ID + functionId).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
+    graph.node(2*BASE_ID + functionId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List()) // Is not part of the original CPG AST for some reason. But including it doesn't seem to break anything, so I included it so it's more similar to other kinds of nodes.
 
-        graph.addNode(BASE_ID + returnValueId, "METHOD_RETURN")
-        graph.node(BASE_ID + returnValueId).setProperty("ORDER", order)
-        graph.node(BASE_ID + returnValueId).setProperty("CODE", returnValueType + " " + returnValueName)
-        graph.node(BASE_ID + returnValueId).setProperty("COLUMN_NUMBER", 0)
-        graph.node(BASE_ID + returnValueId).setProperty("LINE_NUMBER", 0)
-        graph.node(BASE_ID + returnValueId).setProperty("TYPE_FULL_NAME", returnValueType)
-        graph.node(BASE_ID + returnValueId).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
-        graph.node(BASE_ID + returnValueId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List()) // Is not part of the original CPG AST for some reason. But including it doesn't seem to break anything, so I included it so it's more similar to other kinds of nodes.
-        graph.node(BASE_ID + returnValueId).setProperty("NAME", returnValueName) // Is not part of the original CPG AST because in C, return values cannot be named.
-
-        graph.node(BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + returnValueId))
-
-        order += 1
-        firstIteration = false
-      }
-    }
-  }
+    graph.node(BASE_ID + functionId).addEdge("AST", graph.node(2*BASE_ID + functionId))
+}
 
   def registerFunctionBody(graph: Graph, modifierDefinitions: List[Map[String, Object]], wrappedFunction: JsonAST.JValue, numberOfModifiersRemoved: Int = 0): Long = {
     val functionId = getFieldInt(wrappedFunction, "id")
