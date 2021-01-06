@@ -559,14 +559,16 @@ class FuzzyC2Cpg() {
     }
 
     if(statementName.equals("Literal") || statementName.equals("Identifier")
-    || statementName.equals("ElementaryTypeNameExpression")) {
+    || statementName.equals("ElementaryTypeNameExpression") || statementName.equals("ElementaryTypeName")) {
       val statementAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
 
-      // ElementaryTypeNameExpressions are treated as literals for lack of a
-      // better alternative.
+      // ElementaryTypeNameExpressions and ElementaryTypeNames are treated as
+      // literals for lack of a better alternative.
       // ElementaryTypeNameExpressions don't always have the attribute "value".
       // This seems to be the case starting with Solidity 6.
-      val code = if(statementAttributes.keys.exists(_.equals("value")) || statementAttributes.keys.exists(_.equals("hexvalue"))) {
+      val code = if(statementName.equals("ElementaryTypeName"))
+        statementAttributes("name").toString
+      else if(statementAttributes.keys.exists(_.equals("value")) || statementAttributes.keys.exists(_.equals("hexvalue"))) {
         // Solidity 6 has a thing where hex values can be described like "hex'ff'",
         // in which case attribute "value" is null.
         if(statementAttributes.keys.exists(_.equals("value")) && statementAttributes("value") != null)
@@ -748,6 +750,29 @@ class FuzzyC2Cpg() {
       val childId = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
       val code = "new " + graph.node(BASE_ID + childId).property("CODE")
+
+      graph.addNode(BASE_ID + statementId, "CALL")
+      graph.node(BASE_ID + statementId).setProperty("ORDER", order)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
+      graph.node(BASE_ID + statementId).setProperty("CODE", code)
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", code)
+      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
+      graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
+      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+      graph.node(BASE_ID + statementId).setProperty("NAME", code)
+
+      return Array(statementId)
+    }
+
+    if(statementName.equals("ArrayTypeName")) {
+      require(statementChildren.length == 1)
+
+      val childId = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+
+      val code = graph.node(BASE_ID + childId).property("CODE") + "[]"
 
       graph.addNode(BASE_ID + statementId, "CALL")
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
