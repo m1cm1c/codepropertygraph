@@ -765,6 +765,9 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + statementId).setProperty("NAME", code)
 
+      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + childId))
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + childId))
+
       return Array(statementId)
     }
 
