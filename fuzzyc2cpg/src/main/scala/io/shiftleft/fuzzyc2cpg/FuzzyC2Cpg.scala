@@ -817,9 +817,10 @@ class FuzzyC2Cpg() {
 
       val codeLeft = graph.node(BASE_ID + idLeftChild).property("CODE")
       val codeRight = graph.node(BASE_ID + idRightChild).property("CODE")
-      val code = "(" + codeLeft + ") + (" + codeRight + ")"
+      val operatorSymbol = statementAttributes("operator").toString
+      val code = "(" + codeLeft + ") " + operatorSymbol + " (" + codeRight + ")"
 
-      val operatorName = getBinaryOperatorName(statementAttributes("operator").toString)
+      val operatorName = getBinaryOperatorName(operatorSymbol)
       graph.addNode(BASE_ID + statementId, "CALL")
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
       graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
