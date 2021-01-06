@@ -772,11 +772,20 @@ class FuzzyC2Cpg() {
     }
 
     if(statementName.equals("ArrayTypeName")) {
-      require(statementChildren.length == 1)
+      require(statementChildren.length == 1 || statementChildren.length == 2)
 
       val childId = registerStatement(graph, statementChildren(0), 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
 
-      val code = graph.node(BASE_ID + childId).property("CODE") + "[]"
+      val secondChildId = if(statementChildren.length == 1)
+        0
+      else
+        registerStatement(graph, statementChildren(1), 2, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+
+      val innerCode = if(statementChildren.length == 1)
+        ""
+      else
+        graph.node(BASE_ID + secondChildId).property("CODE")
+      val code = graph.node(BASE_ID + childId).property("CODE") + "[" + innerCode + "]"
 
       graph.addNode(BASE_ID + statementId, "CALL")
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
@@ -790,6 +799,13 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
       graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + statementId).setProperty("NAME", code)
+
+      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + childId))
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + childId))
+      if(statementChildren.length == 2) {
+        graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + secondChildId))
+        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + secondChildId))
+      }
 
       return Array(statementId)
     }
