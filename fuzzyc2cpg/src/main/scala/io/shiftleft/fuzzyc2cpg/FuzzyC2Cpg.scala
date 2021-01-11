@@ -439,7 +439,21 @@ class FuzzyC2Cpg() {
       order += 1
     }
 
-    registerBlock(graph, modifierChildren(offset+1), 1, BASE_ID, placeholderReplacement, modifierInvocationArguments)
+    val blockId = registerBlock(graph, modifierChildren(offset+1), 1, BASE_ID, placeholderReplacement, modifierInvocationArguments)
+    graph.node(BASE_ID + modifierId).addEdge("AST", graph.node(BASE_ID + blockId))
+
+    order += 1
+
+    graph.addNode(2*BASE_ID + modifierId, "METHOD_RETURN")
+    graph.node(2*BASE_ID + modifierId).setProperty("ORDER", order)
+    graph.node(2*BASE_ID + modifierId).setProperty("CODE", "")
+    graph.node(2*BASE_ID + modifierId).setProperty("COLUMN_NUMBER", 0)
+    graph.node(2*BASE_ID + modifierId).setProperty("LINE_NUMBER", 0)
+    graph.node(2*BASE_ID + modifierId).setProperty("TYPE_FULL_NAME", "ANY")
+    graph.node(2*BASE_ID + modifierId).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
+    graph.node(2*BASE_ID + modifierId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List()) // Is not part of the original CPG AST for some reason. But including it doesn't seem to break anything, so I included it so it's more similar to other kinds of nodes.
+
+    graph.node(BASE_ID + modifierId).addEdge("AST", graph.node(2*BASE_ID + modifierId))
 
     // TODO: IS A RETURN VALUE REQUIRED?
 
