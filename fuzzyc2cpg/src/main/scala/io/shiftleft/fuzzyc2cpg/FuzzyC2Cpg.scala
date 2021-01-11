@@ -314,7 +314,10 @@ class FuzzyC2Cpg() {
 
     // Modifiers of constructors (empty function name) call the parent's
     // constructor. This is not supported.
-    if(modifierComponents.length == 0 || functionName.equals("") || functionAttributes("isConstructor").equals(true)) {
+    // Modifier support is currently disabled. To enable it, remove "true || " from
+    // the next line and remove "require(false)" from the starts of
+    // registerModifierInstance() and if(statementName.equals("PlaceholderStatement")).
+    if(true || modifierComponents.length == 0 || functionName.equals("") || functionAttributes("isConstructor").equals(true)) {
       // Deal with function body.
       val placeholderReplacement = ""
       val placeholderArguments = List()
@@ -378,6 +381,7 @@ class FuzzyC2Cpg() {
   }
 
   def registerModifierInstance(graph: Graph, modifierDefinitions: List[Map[String, Object]], BASE_ID: Long, placeholderReplacement: String, numberOfModifiersRemoved: Int, modifierInvocation: Map[String, Object]): String = {
+    require(false)
     val modifierInvocationChildren = modifierInvocation("children").asInstanceOf[List[Map[String, Object]]]
     val modifierInvocationArguments = modifierInvocationChildren.slice(1, modifierInvocationChildren.length)
     val modifierReferenceId = modifierInvocationChildren(0)("attributes").asInstanceOf[Map[String, Object]]("referencedDeclaration").toString.toInt
@@ -533,6 +537,7 @@ class FuzzyC2Cpg() {
     }
 
     if(statementName.equals("PlaceholderStatement")) {
+      require(false)
       graph.addNode(BASE_ID + statementId, "CALL")
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
       graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
