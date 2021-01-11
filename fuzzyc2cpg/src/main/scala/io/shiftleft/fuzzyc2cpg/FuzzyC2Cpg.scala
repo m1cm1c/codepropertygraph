@@ -1173,7 +1173,7 @@ class FuzzyC2Cpg() {
       val functionComponent = statementChildren(0)
       val argumentComponents = statementChildren.slice(1, statementChildren.length)
 
-      val functionId = registerStatement(graph, functionComponent, argumentComponents.length + 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
+      val functionId = registerStatement(graph, functionComponent, 1, BASE_ID, placeholderReplacement, placeholderArguments)(0)
       val functionName = graph.node(BASE_ID + functionId).property("CODE")
 
       // val functionReferencedId = functionAttributes("referencedDeclaration").toString.toInt
@@ -1190,9 +1190,12 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + statementId).setProperty("NAME", functionName)
 
+      graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + functionId))
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + functionId))
+
       var code = functionName + "("
       var firstIteration = true
-      var argumentNumber = 1
+      var argumentNumber = 2 // Starting at 2 because Argument 1 is the function itself (that which is referenced by functionId). This is necessary to get data flow from beneficiary to beneficiary.send().
       for(argumentComponent <- argumentComponents) {
         val argumentId = registerStatement(graph, argumentComponent, argumentNumber, BASE_ID, placeholderReplacement, placeholderArguments)(0)
         graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + argumentId))
@@ -1211,8 +1214,6 @@ class FuzzyC2Cpg() {
       code += ")"
 
       graph.node(BASE_ID + statementId).setProperty("CODE", code)
-
-      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + functionId))
 
       return Array(statementId)
     }
