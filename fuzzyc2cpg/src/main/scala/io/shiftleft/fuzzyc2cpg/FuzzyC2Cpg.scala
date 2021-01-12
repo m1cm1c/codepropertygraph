@@ -1082,9 +1082,9 @@ class FuzzyC2Cpg() {
           // We need a node that is not present in the Solidity AST so we add the BASE_ID twice.
           graph.addNode(2*BASE_ID + statementId, "CONTROL_STRUCTURE")
           graph.node(2*BASE_ID + statementId).setProperty("PARSER_TYPE_NAME", "ElseStatement")
-          graph.node(2*BASE_ID + statementId).setProperty("ORDER", order+1) // This does not need to be propagated outwards. There just are duplicate order numbers if there is a subsequent statement. I have no idea why.
+          graph.node(2*BASE_ID + statementId).setProperty("ORDER", 3)
           graph.node(2*BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
-          graph.node(2*BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order+1)
+          graph.node(2*BASE_ID + statementId).setProperty("ARGUMENT_INDEX", 3)
           graph.node(2*BASE_ID + statementId).setProperty("CODE", "else")
           graph.node(2*BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
 
