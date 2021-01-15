@@ -314,7 +314,7 @@ class FuzzyC2Cpg() {
     var order = numberOfOutgoingAstEdges
 
     val orderOfOuterMostBlock = order
-    var blockId = registerBlock(graph, bodyComponent.asInstanceOf[Map[String, Object]], 1337, BASE_ID, -1)
+    var blockId = registerBlock(graph, bodyComponent.asInstanceOf[Map[String, Object]], 1, BASE_ID, -1)
     val functionBlockId = blockId
     var subBlockId = blockId
 
@@ -344,7 +344,7 @@ class FuzzyC2Cpg() {
 
 println("my subblockid")
         println(subBlockId)
-        val modifierInstanceId = registerBlock(graph, modifierChildren(offset + 1), 1337, BASE_ID, subBlockId)
+        val modifierInstanceId = registerBlock(graph, modifierChildren(offset + 1), 1, BASE_ID, subBlockId)
         modifierComponentsInstanceIds(modifierComponentNumber) = modifierInstanceId
         blockId = modifierInstanceId
 
@@ -390,29 +390,8 @@ println("my subblockid")
       modifierComponentNumber += 1
     }
 
-    // Block orders need to be fixed. They were set to 1337 previously. The reason for this
-    // is that it is difficult to know the correct order in advance.
-    for(modifierComponentNumber <- 0 until modifierComponents.reverse.length) {
-      val order = if(modifierComponentNumber == modifierComponents.reverse.length - 1) {
-        orderOfOuterMostBlock
-      } else {
-        1 + 2 * modifierComponentsArgumentListLengths(modifierComponentNumber + 1)
-      }
-
-      graph.node(BASE_ID + modifierComponentsInstanceIds(modifierComponentNumber)).setProperty("ORDER", order)
-      graph.node(BASE_ID + modifierComponentsInstanceIds(modifierComponentNumber)).setProperty("ARGUMENT_INDEX", order)
-    }
-    {
-      val order = if(modifierComponents.reverse.length == 0) {
-        orderOfOuterMostBlock
-      } else {
-        1 + 2 * modifierComponentsArgumentListLengths(0)
-      }
-
-      graph.node(BASE_ID + functionBlockId).setProperty("ORDER", order)
-      graph.node(BASE_ID + functionBlockId).setProperty("ARGUMENT_INDEX", order)
-    }
-
+    graph.node(BASE_ID + blockId).setProperty("ORDER", orderOfOuterMostBlock)
+    graph.node(BASE_ID + blockId).setProperty("ARGUMENT_INDEX", orderOfOuterMostBlock)
     graph.node(BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + blockId))
   }
 
@@ -565,7 +544,18 @@ println("my subblockid")
     }
 
     if(statementName.equals("PlaceholderStatement")) {
-      return Array(subBlockId)
+      graph.addNode(BASE_ID + statementId, "BLOCK")
+      graph.node(BASE_ID + statementId).setProperty("ORDER", order)
+      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
+      graph.node(BASE_ID + statementId).setProperty("CODE", "")
+      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "void")
+      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
+      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
+
+      graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + subBlockId))
+
+      return Array(statementId)
       /*
       require(false)
       graph.addNode(BASE_ID + statementId, "CALL")
