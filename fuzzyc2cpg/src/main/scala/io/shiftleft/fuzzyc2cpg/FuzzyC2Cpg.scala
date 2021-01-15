@@ -174,11 +174,13 @@ class FuzzyC2Cpg() {
     }
   }
 
-  def registerFunctionHeader(graph: Graph, wrappedFunction: JsonAST.JValue, BASE_ID: Long = REAL_BASE_ID, functionNamePostfix: String = ""): Unit = {
+  def registerFunctionHeader(graph: Graph, wrappedFunction: JsonAST.JValue): Unit = {
     val functionId = getFieldInt(wrappedFunction, "id")
     val functionAttributesWrapped = getFieldWrapped(wrappedFunction, "attributes")
 
-    val functionName = getFieldString(functionAttributesWrapped, "name") + functionNamePostfix
+    val functionName = getFieldString(functionAttributesWrapped, "name")
+
+    val BASE_ID = 100*functionId*REAL_BASE_ID+REAL_BASE_ID
 
     graph.addNode(BASE_ID + functionId, "METHOD")
     graph.node(BASE_ID + functionId).setProperty("COLUMN_NUMBER", 0)
@@ -305,11 +307,12 @@ class FuzzyC2Cpg() {
     // input parameters and the return value are outgoing AST edges. So the
     // block's order is the same as the number of outgoing edges. The return
     // value's order is one larger than the block's order.
+    val BASE_ID = 100*functionId*REAL_BASE_ID+REAL_BASE_ID
+
     var numberOfOutgoingAstEdges = 0
-    graph.node(REAL_BASE_ID + functionId).out("AST").forEachRemaining(node => numberOfOutgoingAstEdges += 1)
+    graph.node(BASE_ID + functionId).out("AST").forEachRemaining(node => numberOfOutgoingAstEdges += 1)
     var order = numberOfOutgoingAstEdges
 
-    val BASE_ID = 100*functionId*REAL_BASE_ID+REAL_BASE_ID
     val orderOfMainBlock = if(modifierComponents.length == 0) order else 1
     var blockId = registerBlock(graph, bodyComponent.asInstanceOf[Map[String, Object]], orderOfMainBlock, BASE_ID, -1)
     var subBlockId = blockId
@@ -389,7 +392,7 @@ class FuzzyC2Cpg() {
       }
     }
 
-    graph.node(REAL_BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + blockId))
+    graph.node(BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + blockId))
   }
 
   /*def registerModifierInstance(graph: Graph, modifierDefinitions: List[Map[String, Object]], BASE_ID: Long, placeholderReplacement: String, numberOfModifiersRemoved: Int, modifierInvocation: Map[String, Object]): String = {
