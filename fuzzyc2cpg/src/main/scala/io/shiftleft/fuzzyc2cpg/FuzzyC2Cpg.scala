@@ -1469,23 +1469,6 @@ class FuzzyC2Cpg() {
 
     graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + statementRightId))
     graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + statementRightId))
-
-    var refEdgeAlreadyExists = false
-    val itr = graph.node(BASE_ID + statementLeftId).outE("REF")
-    while(itr.hasNext) {
-      val edge = itr.next()
-      if(edge.inNode().id() == BASE_ID + statementLeftReferencedId || edge.inNode().id() == REAL_BASE_ID + statementLeftReferencedId)
-        refEdgeAlreadyExists = true
-    }
-
-    if(!refEdgeAlreadyExists) {
-      val referencedVariableNode = if (graph.node(BASE_ID + statementLeftReferencedId) != null)
-        graph.node(BASE_ID + statementLeftReferencedId)
-      else
-        graph.node(REAL_BASE_ID + statementLeftReferencedId)
-
-      graph.node(BASE_ID + statementLeftId).addEdge("REF", referencedVariableNode)
-    }
   }
 
   def registerVariable(graph: Graph, wrappedVariableDeclaration: JsonAST.JValue): Unit = {
