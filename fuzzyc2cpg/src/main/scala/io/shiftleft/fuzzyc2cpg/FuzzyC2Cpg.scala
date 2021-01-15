@@ -116,8 +116,8 @@ class FuzzyC2Cpg() {
     getField(jsonObject, attributeName).toString
   }
 
-  def getFieldInt(jsonObject: JsonAST.JValue, attributeName: String): Int = {
-    getFieldString(jsonObject, attributeName).toInt
+  def getFieldInt(jsonObject: JsonAST.JValue, attributeName: String): Long = {
+    getFieldString(jsonObject, attributeName).toLong
   }
 
   def getFieldBoolean(jsonObject: JsonAST.JValue, attributeName: String): Boolean = {
@@ -156,7 +156,7 @@ class FuzzyC2Cpg() {
     // Deal with struct members.
     for(memberComponent <- memberComponents) {
       val attributes = memberComponent("attributes").asInstanceOf[Map[String, Object]]
-      val memberId = memberComponent("id").toString.toInt
+      val memberId = memberComponent("id").toString.toLong
       val nodeName = memberComponent("name").toString
       require(nodeName.equals("VariableDeclaration") || nodeName.equals("EnumValue"))
 
@@ -229,7 +229,7 @@ class FuzzyC2Cpg() {
     var order = 1
     for(attributeSpecificObject <- parameterList("children")) {
       val attributeSpecificMap = attributeSpecificObject.asInstanceOf[Map[String, Object]]
-      val parameterId = attributeSpecificMap("id").toString.toInt
+      val parameterId = attributeSpecificMap("id").toString.toLong
       val attributeMap = attributeSpecificMap("attributes").asInstanceOf[Map[String, Object]]
       val parameterName = attributeMap("name").toString
       val parameterType = attributeMap("type").toString
@@ -326,9 +326,9 @@ class FuzzyC2Cpg() {
 
       val modifierInvocationChildren = modifierComponent.asInstanceOf[Map[String, Object]]("children").asInstanceOf[List[Map[String, Object]]]
       val modifierInvocationArguments = modifierInvocationChildren.slice(1, modifierInvocationChildren.length)
-      val modifierReferenceId = modifierInvocationChildren(0)("attributes").asInstanceOf[Map[String, Object]]("referencedDeclaration").toString.toInt
+      val modifierReferenceId = modifierInvocationChildren(0)("attributes").asInstanceOf[Map[String, Object]]("referencedDeclaration").toString.toLong
 
-      val filteredModifierDefinitions = modifierDefinitions.filter(_("id").toString.toInt == modifierReferenceId)
+      val filteredModifierDefinitions = modifierDefinitions.filter(_("id").toString.toLong == modifierReferenceId)
       // Skip modifiers that are defined in a different AST fragment.
       if(filteredModifierDefinitions.length != 0) {
         require(filteredModifierDefinitions.length == 1)
@@ -350,7 +350,7 @@ class FuzzyC2Cpg() {
           val variableDataType = variableAttributes("type").toString
           val variableName = variableAttributes("name").toString
 
-          val declarationOperationId = argumentList(i)("id").toString.toInt
+          val declarationOperationId = argumentList(i)("id").toString.toLong
           require(argumentList(i)("name").toString.equals("VariableDeclaration"))
 
           graph.addNode(BASE_ID + declarationOperationId, "LOCAL")
@@ -382,7 +382,7 @@ class FuzzyC2Cpg() {
         blockId = modifierInstanceId
 
         for (i <- 0 until argumentList.length) {
-          val declarationOperationId = argumentList(i)("id").toString.toInt
+          val declarationOperationId = argumentList(i)("id").toString.toLong
           graph.node(BASE_ID + modifierInstanceId).addEdge("AST", graph.node(BASE_ID + declarationOperationId))
           graph.node(BASE_ID + modifierInstanceId).addEdge("AST", graph.node(BASE_ID + 4 * BASE_ID + declarationOperationId))
         }
@@ -400,7 +400,7 @@ class FuzzyC2Cpg() {
     println(block("name"))
     require(block("name").asInstanceOf[String].equals("Block"))
 
-    val blockId = block("id").toString.toInt
+    val blockId = block("id").toString.toLong
     println("block id:")
     println(BASE_ID + blockId)
     graph.addNode(BASE_ID + blockId, "BLOCK")
@@ -442,7 +442,7 @@ class FuzzyC2Cpg() {
     println(statementMap)
     val statementName = statementMap("name").toString
     println("Statement name: " + statementName)
-    val statementId = statementMap("id").toString.toInt
+    val statementId = statementMap("id").toString.toLong
     println("Statement ID: " + statementId)
 
     // When ignoring statements, empty blocks are created so a statement ID can be returned.
@@ -519,7 +519,8 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       if (statementName.equals("Identifier")) {
         graph.node(BASE_ID + statementId).setProperty("NAME", statementAttributes("value").toString)
-        val referencedId = statementAttributes("referencedDeclaration").toString.toInt
+        val referencedId = statementAttributes("referencedDeclaration").toString.toLong
+
         if(graph.node(BASE_ID + referencedId) != null)
           graph.node(BASE_ID + statementId).addEdge("REF", graph.node(BASE_ID + referencedId))
         else if(graph.node(REAL_BASE_ID + referencedId) != null) // Required when supporting both global variables and modifiers.
@@ -639,7 +640,7 @@ class FuzzyC2Cpg() {
 
     if(statementName.equals("MemberAccess")) {
       val memberAccessAttributes = statementMap("attributes").asInstanceOf[Map[String, Object]]
-      val memberAccessId = statementMap("id").toString.toInt
+      val memberAccessId = statementMap("id").toString.toLong
       val memberName = memberAccessAttributes("member_name").toString
       val struct = statementMap("children").asInstanceOf[List[Map[String, Object]]](0)
 
@@ -660,7 +661,7 @@ class FuzzyC2Cpg() {
       graph.node(BASE_ID + memberAccessId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
       graph.node(BASE_ID + memberAccessId).setProperty("NAME", "<operator>.fieldAccess")
 
-      // TODO: could make use of structAttributes("referencedDeclaration").toString.toInt for a ref edge
+      // TODO: could make use of structAttributes("referencedDeclaration").toString.toLong for a ref edge
 
       graph.addNode(2*BASE_ID + structId, "FIELD_IDENTIFIER")
       graph.node(2*BASE_ID + structId).setProperty("ORDER", 2)
@@ -914,12 +915,12 @@ class FuzzyC2Cpg() {
         require(false)
       }
 
-      def registerVariableDeclaration(operation: Map[String, Object]): (Map[String, Object], Long, Int) = {
+      def registerVariableDeclaration(operation: Map[String, Object]): (Map[String, Object], Long, Long) = {
         val variableAttributes = operation("attributes").asInstanceOf[Map[String, Object]]
         val variableDataType = variableAttributes("type").toString
         val variableName = variableAttributes("name").toString
 
-        val declarationOperationId = operation("id").toString.toInt
+        val declarationOperationId = operation("id").toString.toLong
         require(operation("name").toString.equals("VariableDeclaration"))
 
         graph.addNode(BASE_ID + declarationOperationId, "LOCAL")
@@ -1109,7 +1110,7 @@ class FuzzyC2Cpg() {
       val functionId = registerStatement(graph, functionComponent, 1, BASE_ID, subBlockId)(0)
       val functionName = graph.node(BASE_ID + functionId).property("CODE")
 
-      // val functionReferencedId = functionAttributes("referencedDeclaration").toString.toInt
+      // val functionReferencedId = functionAttributes("referencedDeclaration").toString.toLong
 
       graph.addNode(BASE_ID + statementId, "CALL")
       graph.node(BASE_ID + statementId).setProperty("ORDER", order)
@@ -1173,7 +1174,7 @@ class FuzzyC2Cpg() {
 
       if (statementLeftKind.equals("Identifier")) {
         val statementLeftVariableName = statementLeftAttributes("value").toString
-        val statementLeftReferencedId = statementLeftAttributes("referencedDeclaration").toString.toInt
+        val statementLeftReferencedId = statementLeftAttributes("referencedDeclaration").toString.toLong
         println("entering assignment helper")
         assignmentHelper(graph, BASE_ID, statementIdI, order, statementLeftId, statementLeftVariableName, operatorSymbol, statementLeftReferencedId, statementRightId)
         order += 1
@@ -1183,7 +1184,7 @@ class FuzzyC2Cpg() {
         val struct = statementLeft("children").asInstanceOf[List[Map[String, Object]]](0)
         val structAttributes = struct("attributes").asInstanceOf[Map[String, Object]]
         val structName = graph.node(BASE_ID + statementLeftId).property("CODE").toString
-        val structId = struct("id").toString.toInt
+        val structId = struct("id").toString.toLong
         val statementLeftVariableName = structName + "." + memberName
 
         graph.addNode(BASE_ID + statementIdI, "CALL")
@@ -1279,7 +1280,7 @@ class FuzzyC2Cpg() {
               var tupleElementNumber = 0
 
               for (statementRight <- statementsRight) {
-                val statementRightId = statementRight("id").toString.toInt
+                val statementRightId = statementRight("id").toString.toLong
                 val variableDataType = statementRight("attributes").asInstanceOf[Map[String, Object]]("type").toString
                 val variableName = "tuple_element_" + tupleElementNumber
 
@@ -1316,7 +1317,7 @@ class FuzzyC2Cpg() {
               val statementsLeftCopy = statementsLeft
               val statementsRightCopy = statementsRight
               statementsRight = List.concat(statementsRight, statementsLeftCopy.map(statementTmp => {
-                val updatedId = statementTmp("id").toString.toInt + 8 * BASE_ID
+                val updatedId = statementTmp("id").toString.toLong + 8 * BASE_ID
                 statementTmp + ("id" -> updatedId.asInstanceOf[Object])
               }))
               val leftChild = operationChildren(0).asInstanceOf[Map[String, List[Map[String, Object]]]]
@@ -1342,7 +1343,7 @@ class FuzzyC2Cpg() {
 
               for(component <- components) {
                 if(component != null) {
-                  val componentId = component("id").toString.toInt
+                  val componentId = component("id").toString.toLong
                   statementsLeft = statementsLeft.appended(component)
                   val makeshiftStatementId = 10*(statementId*BASE_ID) + componentId
                   statementIds = statementIds.appended(makeshiftStatementId)
@@ -1365,7 +1366,7 @@ class FuzzyC2Cpg() {
 
             if (statementLeftKind.equals("Identifier")) {
               val statementLeftVariableName = statementLeftAttributes("value").toString
-              val statementLeftReferencedId = statementLeftAttributes("referencedDeclaration").toString.toInt
+              val statementLeftReferencedId = statementLeftAttributes("referencedDeclaration").toString.toLong
               println("entering assignment helper")
               assignmentHelper(graph, BASE_ID, statementIdI, order, statementLeftId, statementLeftVariableName, operatorSymbol, statementLeftReferencedId, statementRightId)
               order += 1
@@ -1378,7 +1379,7 @@ class FuzzyC2Cpg() {
               require(children.length == 1)
               val childAttributes = children(0)("attributes").asInstanceOf[Map[String, Object]]
               val statementLeftVariableName = childAttributes("value").toString
-              val statementLeftReferencedId = childAttributes("referencedDeclaration").toString.toInt
+              val statementLeftReferencedId = childAttributes("referencedDeclaration").toString.toLong
               println("entering assignment helper")
               assignmentHelper(graph, BASE_ID, statementIdI, order, statementLeftId, statementLeftVariableName, operatorSymbol, statementLeftReferencedId, statementRightId)
               order += 1
@@ -1388,7 +1389,7 @@ class FuzzyC2Cpg() {
               val struct = statementLeft("children").asInstanceOf[List[Map[String, Object]]](0)
               val structAttributes = struct("attributes").asInstanceOf[Map[String, Object]]
               val structName = graph.node(BASE_ID + statementLeftId).property("CODE").toString
-              val structId = struct("id").toString.toInt
+              val structId = struct("id").toString.toLong
               val statementLeftVariableName = structName + "." + memberName
 
               graph.addNode(BASE_ID + statementIdI, "CALL")
