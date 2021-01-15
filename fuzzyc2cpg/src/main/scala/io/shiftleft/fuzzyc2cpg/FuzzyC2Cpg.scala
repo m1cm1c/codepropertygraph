@@ -517,8 +517,12 @@ class FuzzyC2Cpg() {
       if (statementName.equals("Identifier")) {
         graph.node(BASE_ID + statementId).setProperty("NAME", statementAttributes("value").toString)
         val referencedId = statementAttributes("referencedDeclaration").toString.toInt
-        if(graph.node(BASE_ID + referencedId) != null) // TODO: Remove when supporting global variables.
+        if(graph.node(BASE_ID + referencedId) != null)
           graph.node(BASE_ID + statementId).addEdge("REF", graph.node(BASE_ID + referencedId))
+        else if(graph.node(REAL_BASE_ID + referencedId) != null) // Required when supporting both global variables and modifiers.
+          graph.node(BASE_ID + statementId).addEdge("REF", graph.node(REAL_BASE_ID + referencedId))
+        else
+          require(false)
       }
 
       return Array(statementId)
@@ -1460,16 +1464,28 @@ class FuzzyC2Cpg() {
     graph.node(BASE_ID + operationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
     graph.node(BASE_ID + operationId).setProperty("NAME", operatorName)
 
-    val referencedVariableNode = graph.node(BASE_ID + statementLeftReferencedId)
-
     graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + statementLeftId))
     graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + statementLeftId))
 
     graph.node(BASE_ID + operationId).addEdge("AST", graph.node(BASE_ID + statementRightId))
     graph.node(BASE_ID + operationId).addEdge("ARGUMENT", graph.node(BASE_ID + statementRightId))
 
-    if(referencedVariableNode != null)
+    var refEdgeAlreadyExists = false
+    val itr = graph.node(BASE_ID + statementLeftId).outE("REF")
+    while(itr.hasNext) {
+      val edge = itr.next()
+      if(edge.inNode().id() == BASE_ID + statementLeftReferencedId || edge.inNode().id() == REAL_BASE_ID + statementLeftReferencedId)
+        refEdgeAlreadyExists = true
+    }
+
+    if(!refEdgeAlreadyExists) {
+      val referencedVariableNode = if (graph.node(BASE_ID + statementLeftReferencedId) != null)
+        graph.node(BASE_ID + statementLeftReferencedId)
+      else
+        graph.node(REAL_BASE_ID + statementLeftReferencedId)
+
       graph.node(BASE_ID + statementLeftId).addEdge("REF", referencedVariableNode)
+    }
   }
 
   def registerVariable(graph: Graph, wrappedVariableDeclaration: JsonAST.JValue): Unit = {
