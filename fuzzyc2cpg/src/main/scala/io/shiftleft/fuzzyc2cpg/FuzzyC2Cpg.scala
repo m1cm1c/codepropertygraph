@@ -362,8 +362,8 @@ class FuzzyC2Cpg() {
           order += 1
 
           graph.addNode(25 * BASE_ID + declarationOperationId, "IDENTIFIER")
-          graph.node(25 * BASE_ID + declarationOperationId).setProperty("ORDER", 1)
-          graph.node(25 * BASE_ID + declarationOperationId).setProperty("ARGUMENT_INDEX", 1)
+          graph.node(25 * BASE_ID + declarationOperationId).setProperty("ORDER", order)
+          graph.node(25 * BASE_ID + declarationOperationId).setProperty("ARGUMENT_INDEX", order)
           graph.node(25 * BASE_ID + declarationOperationId).setProperty("CODE", variableName)
           graph.node(25 * BASE_ID + declarationOperationId).setProperty("COLUMN_NUMBER", 0)
           graph.node(25 * BASE_ID + declarationOperationId).setProperty("TYPE_FULL_NAME", variableDataType)
