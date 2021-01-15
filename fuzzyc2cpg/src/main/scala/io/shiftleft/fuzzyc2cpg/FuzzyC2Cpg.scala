@@ -313,10 +313,14 @@ class FuzzyC2Cpg() {
     graph.node(BASE_ID + functionId).out("AST").forEachRemaining(node => numberOfOutgoingAstEdges += 1)
     var order = numberOfOutgoingAstEdges
 
-    val orderOfMainBlock = if(modifierComponents.length == 0) order else 1
-    var blockId = registerBlock(graph, bodyComponent.asInstanceOf[Map[String, Object]], orderOfMainBlock, BASE_ID, -1)
+    val orderOfOuterMostBlock = order
+    var blockId = registerBlock(graph, bodyComponent.asInstanceOf[Map[String, Object]], 1337, BASE_ID, -1)
+    val functionBlockId = blockId
     var subBlockId = blockId
 
+    val modifierComponentsArgumentListLengths = Array.fill(modifierComponents.reverse.length){0}
+    val modifierComponentsInstanceIds = Array.fill(modifierComponents.reverse.length){0L}
+    var modifierComponentNumber = 0
     for(modifierComponent <- modifierComponents.reverse) { // TODO: reihenfolge?
       subBlockId = blockId
 
@@ -338,23 +342,15 @@ class FuzzyC2Cpg() {
 
         val argumentList = modifierChildren(offset + 0).asInstanceOf[Map[String, List[Map[String, Object]]]]("children")
 
-
-        val modifierInstanceId = registerBlock(graph, modifierChildren(offset + 1), argumentList.length + 1, BASE_ID, subBlockId)
-
-        graph.addNode(2 * BASE_ID + modifierInstanceId, "BLOCK")
-        graph.node(2 * BASE_ID + modifierInstanceId).setProperty("ORDER", order)
-        graph.node(2 * BASE_ID + modifierInstanceId).setProperty("ARGUMENT_INDEX", order)
-        graph.node(2 * BASE_ID + modifierInstanceId).setProperty("CODE", "")
-        graph.node(2 * BASE_ID + modifierInstanceId).setProperty("COLUMN_NUMBER", 0)
-        graph.node(2 * BASE_ID + modifierInstanceId).setProperty("TYPE_FULL_NAME", "void")
-        graph.node(2 * BASE_ID + modifierInstanceId).setProperty("LINE_NUMBER", 0)
-        graph.node(2 * BASE_ID + modifierInstanceId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-
-        graph.node(2 * BASE_ID + modifierInstanceId).addEdge("AST", graph.node(BASE_ID + blockId))
-        blockId = BASE_ID + modifierInstanceId
+println("my subblockid")
+        println(subBlockId)
+        val modifierInstanceId = registerBlock(graph, modifierChildren(offset + 1), 1337, BASE_ID, subBlockId)
+        modifierComponentsInstanceIds(modifierComponentNumber) = modifierInstanceId
+        blockId = modifierInstanceId
 
         order = 1
         require(modifierInvocationArguments.length == argumentList.length)
+        modifierComponentsArgumentListLengths(modifierComponentNumber) = argumentList.length
         for (i <- 0 until argumentList.length) {
           val variableAttributes = argumentList(i)("attributes").asInstanceOf[Map[String, Object]]
           val variableDataType = variableAttributes("type").toString
@@ -370,7 +366,7 @@ class FuzzyC2Cpg() {
           graph.node(BASE_ID + declarationOperationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
           graph.node(BASE_ID + declarationOperationId).setProperty("NAME", variableName)
 
-          graph.node(2 * BASE_ID + modifierInstanceId).addEdge("AST", graph.node(BASE_ID + declarationOperationId))
+          graph.node(BASE_ID + modifierInstanceId).addEdge("AST", graph.node(BASE_ID + declarationOperationId))
           order += 1
 
           graph.addNode(25 * BASE_ID + declarationOperationId, "IDENTIFIER")
@@ -386,10 +382,35 @@ class FuzzyC2Cpg() {
 
           val statementRightId = registerStatement(graph, modifierInvocationArguments(i), order, BASE_ID, subBlockId)(0)
           assignmentHelper(graph, BASE_ID, 4 * BASE_ID + declarationOperationId, order, 24 * BASE_ID + declarationOperationId, variableName, "=", declarationOperationId, statementRightId)
-          graph.node(2 * BASE_ID + modifierInstanceId).addEdge("AST", graph.node(BASE_ID + 4 * BASE_ID + declarationOperationId))
+          graph.node(BASE_ID + modifierInstanceId).addEdge("AST", graph.node(BASE_ID + 4 * BASE_ID + declarationOperationId))
           order += 1
         }
       }
+
+      modifierComponentNumber += 1
+    }
+
+    // Block orders need to be fixed. They were set to 1337 previously. The reason for this
+    // is that it is difficult to know the correct order in advance.
+    for(modifierComponentNumber <- 0 until modifierComponents.reverse.length) {
+      val order = if(modifierComponentNumber == modifierComponents.reverse.length - 1) {
+        orderOfOuterMostBlock
+      } else {
+        1 + 2 * modifierComponentsArgumentListLengths(modifierComponentNumber + 1)
+      }
+
+      graph.node(BASE_ID + modifierComponentsInstanceIds(modifierComponentNumber)).setProperty("ORDER", order)
+      graph.node(BASE_ID + modifierComponentsInstanceIds(modifierComponentNumber)).setProperty("ARGUMENT_INDEX", order)
+    }
+    {
+      val order = if(modifierComponents.reverse.length == 0) {
+        orderOfOuterMostBlock
+      } else {
+        1 + 2 * modifierComponentsArgumentListLengths(0)
+      }
+
+      graph.node(BASE_ID + functionBlockId).setProperty("ORDER", order)
+      graph.node(BASE_ID + functionBlockId).setProperty("ARGUMENT_INDEX", order)
     }
 
     graph.node(BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + blockId))
@@ -473,7 +494,7 @@ class FuzzyC2Cpg() {
 
     val blockId = block("id").toString.toInt
     println("block id:")
-    println(blockId)
+    println(BASE_ID + blockId)
     graph.addNode(BASE_ID + blockId, "BLOCK")
     graph.node(BASE_ID + blockId).setProperty("ORDER", order)
     graph.node(BASE_ID + blockId).setProperty("ARGUMENT_INDEX", order)
@@ -492,6 +513,10 @@ class FuzzyC2Cpg() {
     for(statement <- statementsList) {
       val statementIds = registerStatement(graph, statement, statementOrder, BASE_ID, subBlockId)
       for(statementId <- statementIds) {
+        println("my statementid")
+        println(statementId)
+        println(graph.node(BASE_ID + blockId))
+        println(graph.node(BASE_ID + statementId))
         graph.node(BASE_ID + blockId).addEdge("AST", graph.node(BASE_ID + statementId))
       }
       statementOrder += statementIds.length
