@@ -342,10 +342,6 @@ class FuzzyC2Cpg() {
 
         val argumentList = modifierChildren(offset + 0).asInstanceOf[Map[String, List[Map[String, Object]]]]("children")
 
-        val modifierInstanceId = registerBlock(graph, modifierChildren(offset + 1), 1, BASE_ID, subBlockId)
-        modifierComponentsInstanceIds(modifierComponentNumber) = modifierInstanceId
-        blockId = modifierInstanceId
-
         order = 1
         require(modifierInvocationArguments.length == argumentList.length)
         modifierComponentsArgumentListLengths(modifierComponentNumber) = argumentList.length
@@ -363,8 +359,6 @@ class FuzzyC2Cpg() {
           graph.node(BASE_ID + declarationOperationId).setProperty("CODE", variableName)
           graph.node(BASE_ID + declarationOperationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
           graph.node(BASE_ID + declarationOperationId).setProperty("NAME", variableName)
-
-          graph.node(BASE_ID + modifierInstanceId).addEdge("AST", graph.node(BASE_ID + declarationOperationId))
           order += 1
 
           graph.addNode(25 * BASE_ID + declarationOperationId, "IDENTIFIER")
@@ -380,8 +374,17 @@ class FuzzyC2Cpg() {
 
           val statementRightId = registerStatement(graph, modifierInvocationArguments(i), order, BASE_ID, subBlockId)(0)
           assignmentHelper(graph, BASE_ID, 4 * BASE_ID + declarationOperationId, order, 24 * BASE_ID + declarationOperationId, variableName, "=", declarationOperationId, statementRightId)
-          graph.node(BASE_ID + modifierInstanceId).addEdge("AST", graph.node(BASE_ID + 4 * BASE_ID + declarationOperationId))
           order += 1
+        }
+
+        val modifierInstanceId = registerBlock(graph, modifierChildren(offset + 1), 1, BASE_ID, subBlockId)
+        modifierComponentsInstanceIds(modifierComponentNumber) = modifierInstanceId
+        blockId = modifierInstanceId
+
+        for (i <- 0 until argumentList.length) {
+          val declarationOperationId = argumentList(i)("id").toString.toInt
+          graph.node(BASE_ID + modifierInstanceId).addEdge("AST", graph.node(BASE_ID + declarationOperationId))
+          graph.node(BASE_ID + modifierInstanceId).addEdge("AST", graph.node(BASE_ID + 4 * BASE_ID + declarationOperationId))
         }
       }
 
