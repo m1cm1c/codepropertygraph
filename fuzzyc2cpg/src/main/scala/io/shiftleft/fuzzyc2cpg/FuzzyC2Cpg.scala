@@ -321,7 +321,7 @@ class FuzzyC2Cpg() {
     val modifierComponentsArgumentListLengths = Array.fill(modifierComponents.reverse.length){0}
     val modifierComponentsInstanceIds = Array.fill(modifierComponents.reverse.length){0L}
     var modifierComponentNumber = 0
-    for(modifierComponent <- modifierComponents.reverse) { // TODO: reihenfolge?
+    for(modifierComponent <- modifierComponents.reverse) {
       subBlockId = blockId
 
       val modifierInvocationChildren = modifierComponent.asInstanceOf[Map[String, Object]]("children").asInstanceOf[List[Map[String, Object]]]
@@ -342,8 +342,6 @@ class FuzzyC2Cpg() {
 
         val argumentList = modifierChildren(offset + 0).asInstanceOf[Map[String, List[Map[String, Object]]]]("children")
 
-println("my subblockid")
-        println(subBlockId)
         val modifierInstanceId = registerBlock(graph, modifierChildren(offset + 1), 1, BASE_ID, subBlockId)
         modifierComponentsInstanceIds(modifierComponentNumber) = modifierInstanceId
         blockId = modifierInstanceId
@@ -394,78 +392,6 @@ println("my subblockid")
     graph.node(BASE_ID + blockId).setProperty("ARGUMENT_INDEX", orderOfOuterMostBlock)
     graph.node(BASE_ID + functionId).addEdge("AST", graph.node(BASE_ID + blockId))
   }
-
-  /*def registerModifierInstance(graph: Graph, modifierDefinitions: List[Map[String, Object]], BASE_ID: Long, placeholderReplacement: String, numberOfModifiersRemoved: Int, modifierInvocation: Map[String, Object]): String = {
-    val modifierName = modifierDefinition("attributes").asInstanceOf[Map[String, Object]]("name").toString
-    val modifierInstanceName = modifierName + "_CALLING_" + placeholderReplacement
-    val modifierId = modifierDefinition("id").toString.toInt
-    val modifierChildren = modifierDefinition("children").asInstanceOf[List[Map[String, Object]]]
-
-    graph.addNode(BASE_ID + modifierId, "METHOD")
-    graph.node(BASE_ID + modifierId).setProperty("COLUMN_NUMBER", 0)
-    graph.node(BASE_ID + modifierId).setProperty("LINE_NUMBER", 0)
-    graph.node(BASE_ID + modifierId).setProperty("COLUMN_NUMBER_END", 0)
-    graph.node(BASE_ID + modifierId).setProperty("IS_EXTERNAL", false)
-    graph.node(BASE_ID + modifierId).setProperty("SIGNATURE", modifierInstanceName)
-    graph.node(BASE_ID + modifierId).setProperty("NAME", modifierInstanceName)
-    graph.node(BASE_ID + modifierId).setProperty("AST_PARENT_TYPE", "") // I'm leaving these two empty because (contrary to the documentation)
-    graph.node(BASE_ID + modifierId).setProperty("AST_PARENT_FULL_NAME", "") // they always seem to be left empty.
-    graph.node(BASE_ID + modifierId).setProperty("ORDER", -1)
-    graph.node(BASE_ID + modifierId).setProperty("CODE", modifierInstanceName)
-    graph.node(BASE_ID + modifierId).setProperty("FULL_NAME", modifierInstanceName)
-    graph.node(BASE_ID + modifierId).setProperty("LINE_NUMBER_END", 0)
-    graph.node(BASE_ID + modifierId).setProperty("FILENAME", "")
-
-    graph.node(1000101).addEdge("AST", graph.node(BASE_ID + modifierId))
-
-    var offset = 0
-    if(modifierChildren(0)("name").toString.equals("StructuredDocumentation"))
-      offset += 1
-
-    val parameterList = modifierChildren(offset+0).asInstanceOf[Map[String, List[Object]]]
-    var order = 1
-    for(attributeSpecificObject <- parameterList("children")) {
-      val attributeSpecificMap = attributeSpecificObject.asInstanceOf[Map[String, Object]]
-      val parameterId = attributeSpecificMap("id").toString.toInt
-      val attributeMap = attributeSpecificMap("attributes").asInstanceOf[Map[String, Object]]
-      val parameterName = attributeMap("name").toString
-      val parameterType = attributeMap("type").toString
-
-      graph.addNode(BASE_ID + parameterId, "METHOD_PARAMETER_IN")
-      graph.node(BASE_ID + parameterId).setProperty("ORDER", order)
-      graph.node(BASE_ID + parameterId).setProperty("CODE", parameterType + " " + parameterName)
-      graph.node(BASE_ID + parameterId).setProperty("COLUMN_NUMBER", 0)
-      graph.node(BASE_ID + parameterId).setProperty("LINE_NUMBER", 0)
-      graph.node(BASE_ID + parameterId).setProperty("TYPE_FULL_NAME", parameterType)
-      graph.node(BASE_ID + parameterId).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
-      graph.node(BASE_ID + parameterId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-      graph.node(BASE_ID + parameterId).setProperty("NAME", parameterName)
-
-      graph.node(BASE_ID + modifierId).addEdge("AST", graph.node(BASE_ID + parameterId))
-
-      order += 1
-    }
-
-    val blockId = registerBlock(graph, modifierChildren(offset+1), 1, BASE_ID, placeholderReplacement, modifierInvocationArguments)
-    graph.node(BASE_ID + modifierId).addEdge("AST", graph.node(BASE_ID + blockId))
-
-    order += 1
-
-    graph.addNode(2*BASE_ID + modifierId, "METHOD_RETURN")
-    graph.node(2*BASE_ID + modifierId).setProperty("ORDER", order)
-    graph.node(2*BASE_ID + modifierId).setProperty("CODE", "")
-    graph.node(2*BASE_ID + modifierId).setProperty("COLUMN_NUMBER", 0)
-    graph.node(2*BASE_ID + modifierId).setProperty("LINE_NUMBER", 0)
-    graph.node(2*BASE_ID + modifierId).setProperty("TYPE_FULL_NAME", "ANY")
-    graph.node(2*BASE_ID + modifierId).setProperty("EVALUATION_STRATEGY", "BY_VALUE")
-    graph.node(2*BASE_ID + modifierId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List()) // Is not part of the original CPG AST for some reason. But including it doesn't seem to break anything, so I included it so it's more similar to other kinds of nodes.
-
-    graph.node(BASE_ID + modifierId).addEdge("AST", graph.node(2*BASE_ID + modifierId))
-
-    // TODO: IS A RETURN VALUE REQUIRED?
-
-    modifierInstanceName
-  }*/
 
   def registerBlock(graph: Graph, block: Map[String, Object], order: Int, BASE_ID: Long, subBlockId: Long): Long = {
     println(block("name"))
@@ -556,45 +482,6 @@ println("my subblockid")
       graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + subBlockId))
 
       return Array(statementId)
-      /*
-      require(false)
-      graph.addNode(BASE_ID + statementId, "CALL")
-      graph.node(BASE_ID + statementId).setProperty("ORDER", order)
-      graph.node(BASE_ID + statementId).setProperty("ARGUMENT_INDEX", order)
-      graph.node(BASE_ID + statementId).setProperty("COLUMN_NUMBER", 0)
-      graph.node(BASE_ID + statementId).setProperty("METHOD_FULL_NAME", placeholderReplacement)
-      graph.node(BASE_ID + statementId).setProperty("TYPE_FULL_NAME", "ANY")
-      graph.node(BASE_ID + statementId).setProperty("LINE_NUMBER", 0)
-      graph.node(BASE_ID + statementId).setProperty("DISPATCH_TYPE", "STATIC_DISPATCH")
-      graph.node(BASE_ID + statementId).setProperty("SIGNATURE", "TODO assignment signature")
-      graph.node(BASE_ID + statementId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
-      graph.node(BASE_ID + statementId).setProperty("NAME", placeholderReplacement)
-
-      var code = placeholderReplacement + "("
-      var firstIteration = true
-      var argumentNumber = 1
-      for(argumentComponent <- placeholderArguments) {
-        // The BASE_ID needs to be adapted to support multiple occurrences of PlaceholderStatement
-        // in the same modifier. Otherwise, the same vertices would be used twice.
-        val argumentId = registerStatement(graph, argumentComponent, argumentNumber, BASE_ID + REAL_BASE_ID*statementId, subBlockId)(0)
-        graph.node(BASE_ID + statementId).addEdge("ARGUMENT", graph.node(BASE_ID + REAL_BASE_ID*statementId + argumentId))
-        graph.node(BASE_ID + statementId).addEdge("AST", graph.node(BASE_ID + REAL_BASE_ID*statementId + argumentId))
-
-        if(firstIteration)
-          firstIteration = false
-        else
-          code += ", "
-
-        code += graph.node(BASE_ID + REAL_BASE_ID*statementId + argumentId).property("CODE")
-
-        argumentNumber += 1
-      }
-
-      code += ")"
-
-      graph.node(BASE_ID + statementId).setProperty("CODE", code)
-
-      return Array(statementId)*/
     }
 
     if(statementName.equals("Literal") || statementName.equals("Identifier")
