@@ -521,12 +521,15 @@ class FuzzyC2Cpg() {
         graph.node(BASE_ID + statementId).setProperty("NAME", statementAttributes("value").toString)
         val referencedId = statementAttributes("referencedDeclaration").toString.toLong
 
-        if(graph.node(BASE_ID + referencedId) != null)
-          graph.node(BASE_ID + statementId).addEdge("REF", graph.node(BASE_ID + referencedId))
-        else if(graph.node(REAL_BASE_ID + referencedId) != null) // Required when supporting both global variables and modifiers.
-          graph.node(BASE_ID + statementId).addEdge("REF", graph.node(REAL_BASE_ID + referencedId))
-        else
-          require(false)
+        if(graph.node(BASE_ID + referencedId) != null) {
+          if(graph.node(BASE_ID + referencedId).label().equals("LOCAL") || graph.node(BASE_ID + referencedId).label().equals("METHOD_PARAMETER_IN"))
+            graph.node(BASE_ID + statementId).addEdge("REF", graph.node(BASE_ID + referencedId))
+        } else if(graph.node(REAL_BASE_ID + referencedId) != null) // Required when supporting both global variables and modifiers.
+          if(graph.node(REAL_BASE_ID + referencedId).label().equals("LOCAL") || graph.node(REAL_BASE_ID + referencedId).label().equals("METHOD_PARAMETER_IN"))
+            graph.node(BASE_ID + statementId).addEdge("REF", graph.node(REAL_BASE_ID + referencedId))
+        // The further else case must not be handled with a require(false).
+        // Otherwise, it would fail upon encountering a not-yet registered
+        // function call. Function call are identifiers too.
       }
 
       return Array(statementId)
