@@ -1626,6 +1626,7 @@ class FuzzyC2Cpg() {
       case "-=" => "<operator>.assignmentMinus"
       case "*=" => "<operator>.assignmentMultiplication"
       case "/=" => "<operator>.assignmentDivision"
+      case "%=" => "<operator>.assignmentModulo"
       case "=" => "<operator>.assignment"
       case _ => "<operator>.ERROR"
     }
