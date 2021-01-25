@@ -362,17 +362,16 @@ class FuzzyC2Cpg() {
           order += 1
 
           graph.addNode(25 * BASE_ID + declarationOperationId, "IDENTIFIER")
-          graph.node(25 * BASE_ID + declarationOperationId).setProperty("ORDER", order)
-          graph.node(25 * BASE_ID + declarationOperationId).setProperty("ARGUMENT_INDEX", order)
+          graph.node(25 * BASE_ID + declarationOperationId).setProperty("ORDER", 1)
+          graph.node(25 * BASE_ID + declarationOperationId).setProperty("ARGUMENT_INDEX", 1)
           graph.node(25 * BASE_ID + declarationOperationId).setProperty("CODE", variableName)
           graph.node(25 * BASE_ID + declarationOperationId).setProperty("COLUMN_NUMBER", 0)
           graph.node(25 * BASE_ID + declarationOperationId).setProperty("TYPE_FULL_NAME", variableDataType)
           graph.node(25 * BASE_ID + declarationOperationId).setProperty("LINE_NUMBER", 0)
           graph.node(25 * BASE_ID + declarationOperationId).setProperty("DYNAMIC_TYPE_HINT_FULL_NAME", List())
           graph.node(25 * BASE_ID + declarationOperationId).setProperty("NAME", variableName)
-          order += 1
 
-          val statementRightId = registerStatement(graph, modifierInvocationArguments(i), order, BASE_ID, subBlockId)(0)
+          val statementRightId = registerStatement(graph, modifierInvocationArguments(i), 2, BASE_ID, subBlockId)(0)
           assignmentHelper(graph, BASE_ID, 4 * BASE_ID + declarationOperationId, order, 24 * BASE_ID + declarationOperationId, variableName, "=", declarationOperationId, statementRightId)
           order += 1
         }
@@ -381,6 +380,13 @@ class FuzzyC2Cpg() {
         modifierComponentsInstanceIds(modifierComponentNumber) = modifierInstanceId
         blockId = modifierInstanceId
 
+        // To insert the arguments, the orders first need to be renamed.
+        graph.node(BASE_ID + modifierInstanceId).outE("AST").forEachRemaining(edge => {
+          val node = edge.inNode()
+          val oldOrder = node.property("ORDER").toString.toInt
+          val newOrder = oldOrder + 2*argumentList.length
+          node.setProperty("ORDER", newOrder)
+        })
         for (i <- 0 until argumentList.length) {
           val declarationOperationId = argumentList(i)("id").toString.toLong
           graph.node(BASE_ID + modifierInstanceId).addEdge("AST", graph.node(BASE_ID + declarationOperationId))
