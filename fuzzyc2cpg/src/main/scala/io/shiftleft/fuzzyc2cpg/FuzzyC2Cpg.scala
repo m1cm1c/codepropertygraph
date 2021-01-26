@@ -179,25 +179,10 @@ class FuzzyC2Cpg() {
     val functionAttributesWrapped = getFieldWrapped(wrappedFunction, "attributes")
 
     val functionName = getFieldString(functionAttributesWrapped, "name")
+    val stateMutability = getFieldString(functionAttributesWrapped, "stateMutability")
+    val visibility = getFieldString(functionAttributesWrapped, "visibility")
 
     val BASE_ID = 100*functionId*REAL_BASE_ID+REAL_BASE_ID
-
-    graph.addNode(BASE_ID + functionId, "METHOD")
-    graph.node(BASE_ID + functionId).setProperty("COLUMN_NUMBER", 0)
-    graph.node(BASE_ID + functionId).setProperty("LINE_NUMBER", 0)
-    graph.node(BASE_ID + functionId).setProperty("COLUMN_NUMBER_END", 0)
-    graph.node(BASE_ID + functionId).setProperty("IS_EXTERNAL", false)
-    graph.node(BASE_ID + functionId).setProperty("SIGNATURE", functionName)
-    graph.node(BASE_ID + functionId).setProperty("NAME", functionName)
-    graph.node(BASE_ID + functionId).setProperty("AST_PARENT_TYPE", "") // I'm leaving these two empty because (contrary to the documentation)
-    graph.node(BASE_ID + functionId).setProperty("AST_PARENT_FULL_NAME", "") // they always seem to be left empty.
-    graph.node(BASE_ID + functionId).setProperty("ORDER", -1)
-    graph.node(BASE_ID + functionId).setProperty("CODE", functionName)
-    graph.node(BASE_ID + functionId).setProperty("FULL_NAME", functionName)
-    graph.node(BASE_ID + functionId).setProperty("LINE_NUMBER_END", 0)
-    graph.node(BASE_ID + functionId).setProperty("FILENAME", "")
-
-    graph.node(1000101).addEdge("AST", graph.node(BASE_ID + functionId))
 
     val functionComponentsWrapped = getFieldWrapped(wrappedFunction, "children")
     val functionComponents = getFieldList(wrappedFunction, "children")
@@ -223,6 +208,23 @@ class FuzzyC2Cpg() {
         return
       }
     }
+
+    graph.addNode(BASE_ID + functionId, "METHOD")
+    graph.node(BASE_ID + functionId).setProperty("COLUMN_NUMBER", 0)
+    graph.node(BASE_ID + functionId).setProperty("LINE_NUMBER", 0)
+    graph.node(BASE_ID + functionId).setProperty("COLUMN_NUMBER_END", 0)
+    graph.node(BASE_ID + functionId).setProperty("IS_EXTERNAL", false)
+    graph.node(BASE_ID + functionId).setProperty("SIGNATURE", functionName + " " + visibility + " " + stateMutability)
+    graph.node(BASE_ID + functionId).setProperty("NAME", functionName)
+    graph.node(BASE_ID + functionId).setProperty("AST_PARENT_TYPE", "") // I'm leaving these two empty because (contrary to the documentation)
+    graph.node(BASE_ID + functionId).setProperty("AST_PARENT_FULL_NAME", "") // they always seem to be left empty.
+    graph.node(BASE_ID + functionId).setProperty("ORDER", -1)
+    graph.node(BASE_ID + functionId).setProperty("CODE", functionName)
+    graph.node(BASE_ID + functionId).setProperty("FULL_NAME", functionName)
+    graph.node(BASE_ID + functionId).setProperty("LINE_NUMBER_END", 0)
+    graph.node(BASE_ID + functionId).setProperty("FILENAME", "")
+
+    graph.node(1000101).addEdge("AST", graph.node(BASE_ID + functionId))
 
     // Deal with function parameters.
     val parameterList = parameterListComponent.values.asInstanceOf[Map[String, List[Object]]]
